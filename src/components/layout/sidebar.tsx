@@ -9,9 +9,9 @@ import {
   Package,
   Settings,
   LogOut,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -24,16 +24,27 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r bg-white">
+    <aside className="flex h-screen w-64 flex-col bg-sidebar text-sidebar-foreground">
       {/* Logo */}
-      <div className="flex h-16 items-center border-b px-6">
-        <h1 className="text-lg font-bold text-gray-900">
-          Cadastro Inteligente
-        </h1>
+      <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-5">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
+          <Sparkles className="h-4 w-4 text-sidebar-primary-foreground" />
+        </div>
+        <div>
+          <h1 className="text-sm font-semibold tracking-tight">
+            Cadastro Inteligente
+          </h1>
+          <p className="text-[10px] text-sidebar-foreground/50">
+            Automação de catálogo
+          </p>
+        </div>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
+        <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
+          Menu
+        </p>
         {navItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           return (
@@ -41,13 +52,13 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
                 isActive
-                  ? 'bg-gray-100 text-gray-900'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-sm'
+                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
               )}
             >
-              <item.icon className="h-5 w-5" />
+              <item.icon className="h-4 w-4" />
               {item.label}
             </Link>
           );
@@ -55,15 +66,14 @@ export function Sidebar() {
       </nav>
 
       {/* Logout */}
-      <div className="border-t p-3">
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-3 text-gray-600"
+      <div className="border-t border-sidebar-border p-3">
+        <button
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
           onClick={() => signOut({ callbackUrl: '/login' })}
         >
-          <LogOut className="h-5 w-5" />
+          <LogOut className="h-4 w-4" />
           Sair
-        </Button>
+        </button>
       </div>
     </aside>
   );

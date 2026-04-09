@@ -36,15 +36,16 @@ function getConfig() {
 
 function buildUrl(tableId: string, rowId?: number | string): string {
   const { apiUrl, baseId } = getConfig();
-  const base = `${apiUrl}/api/v2/public/shared-view/${tableId}`;
-  // Use the v2 data API
-  const url = `${apiUrl}/api/v2/meta/bases/${baseId}/tables/${tableId}`;
-  // Actually use the correct NocoDB v1 data endpoint
   const dataUrl = `${apiUrl}/api/v1/db/data/noco/${baseId}/${tableId}`;
   if (rowId) {
     return `${dataUrl}/${rowId}`;
   }
   return dataUrl;
+}
+
+function buildBulkUrl(tableId: string): string {
+  const { apiUrl, baseId } = getConfig();
+  return `${apiUrl}/api/v1/db/data/bulk/noco/${baseId}/${tableId}`;
 }
 
 async function request<T>(
@@ -114,8 +115,7 @@ export async function bulkCreate<T>(
   tableId: string,
   rows: Partial<T>[]
 ): Promise<T[]> {
-  const url = `${buildUrl(tableId)}/bulk`;
-  return request<T[]>(url, {
+  return request<T[]>(buildBulkUrl(tableId), {
     method: 'POST',
     body: JSON.stringify(rows),
   });
@@ -136,8 +136,7 @@ export async function bulkUpdate<T>(
   tableId: string,
   rows: (Partial<T> & { Id: number })[]
 ): Promise<T[]> {
-  const url = `${buildUrl(tableId)}/bulk`;
-  return request<T[]>(url, {
+  return request<T[]>(buildBulkUrl(tableId), {
     method: 'PATCH',
     body: JSON.stringify(rows),
   });
