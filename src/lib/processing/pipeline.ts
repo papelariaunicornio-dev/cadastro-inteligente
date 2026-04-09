@@ -1,10 +1,25 @@
 /**
  * Main processing pipeline orchestrator.
  * Runs each job through: search → scrape → images → generate → price → save draft.
+ * Each step has a timeout to prevent hanging.
  */
 
 import { get, update, create, list } from '@/lib/nocodb';
 import { TABLES } from '@/lib/nocodb-tables';
+
+const STEP_TIMEOUT_MS = 120_000; // 2 minutes per step
+
+/**
+ * Wrap an async operation with a timeout.
+ */
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout: ${label} excedeu ${ms / 1000}s`)), ms)
+    ),
+  ]);
+}
 import type {
   ProcessingJob,
   NfItem,
@@ -93,12 +108,16 @@ export async function processJob(jobId: number): Promise<void> {
     await setJobStatus(jobId, 'pesquisando');
     console.log(`[Pipeline] Job ${jobId}: searching...`);
 
-    const searchResult = await searchProduct({
-      items,
-      fornecedorCnpj: nfImport.fornecedor_cnpj,
-      fornecedorNome: nfImport.fornecedor_nome,
-      fornecedorFantasia: nfImport.fornecedor_fantasia,
-    });
+    const searchResult = await withTimeout(
+      searchProduct({
+        items,
+        fornecedorCnpj: nfImport.fornecedor_cnpj,
+        fornecedorNome: nfImport.fornecedor_nome,
+        fornecedorFantasia: nfImport.fornecedor_fantasia,
+      }),
+      STEP_TIMEOUT_MS,
+      'search'
+    );
 
     await setJobStatus(jobId, 'pesquisando', {
       urls_encontradas: JSON.stringify(searchResult.classified),
@@ -108,7 +127,11 @@ export async function processJob(jobId: number): Promise<void> {
     await setJobStatus(jobId, 'scraping');
     console.log(`[Pipeline] Job ${jobId}: scraping ${searchResult.allUrls.length} URLs...`);
 
-    const scrapedData = await scrapePages(searchResult.classified);
+    const scrapedData = await withTimeout(
+      scrapePages(searchResult.classified),
+      STEP_TIMEOUT_MS,
+      'scrape'
+    );
 
     await setJobStatus(jobId, 'scraping', {
       dados_scraping: JSON.stringify(
@@ -133,13 +156,17 @@ export async function processJob(jobId: number): Promise<void> {
     await setJobStatus(jobId, 'gerando');
     console.log(`[Pipeline] Job ${jobId}: generating with AI...`);
 
-    const generated = await generateProductDraft({
-      items,
-      tipo: job.tipo as 'sem_variacao' | 'com_variacao' | 'multiplos_itens',
-      brand: searchResult.brand,
-      scrapedData,
-      settings,
-    });
+    const generated = await withTimeout(
+      generateProductDraft({
+        items,
+        tipo: job.tipo as 'sem_variacao' | 'com_variacao' | 'multiplos_itens',
+        brand: searchResult.brand,
+        scrapedData,
+        settings,
+      }),
+      STEP_TIMEOUT_MS,
+      'generate'
+    );
 
     // ========== Step 5: PRICE ==========
     const primaryItem = items[0];

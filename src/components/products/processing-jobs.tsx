@@ -3,7 +3,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertCircle, CheckCircle2, Search, Globe, Image, Sparkles, ChevronDown, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, AlertCircle, CheckCircle2, Search, Globe, Image, Sparkles, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react';
+import { toast } from 'sonner';
 import type { ProcessingJob } from '@/lib/types';
 
 const STATUS_CONFIG: Record<string, {
@@ -31,6 +33,7 @@ export function ProcessingJobs() {
   const [jobs, setJobs] = useState<ProcessingJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -54,24 +57,58 @@ export function ProcessingJobs() {
   }, [fetchJobs, jobs]);
 
   const activeJobs = jobs.filter((j) => !['concluido', 'erro'].includes(j.status));
+  const errorJobs = jobs.filter((j) => j.status === 'erro');
 
-  if (loading || activeJobs.length === 0) return null;
+  const handleResetStuck = async () => {
+    setResetting(true);
+    try {
+      const res = await fetch('/api/jobs/reset-stuck', { method: 'POST' });
+      const data = await res.json();
+      toast.success(data.message || 'Jobs resetados');
+      fetchJobs();
+    } catch {
+      toast.error('Erro ao resetar jobs');
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  if (loading || (activeJobs.length === 0 && errorJobs.length === 0)) return null;
 
   return (
     <Card className="border-amber-200 bg-amber-50/50">
-      <CardHeader
-        className="pb-3 cursor-pointer select-none"
-        onClick={() => setExpanded((v) => !v)}
-      >
-        <CardTitle className="flex items-center gap-2 text-base">
-          {expanded ? (
-            <ChevronDown className="h-4 w-4 text-amber-600" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-amber-600" />
-          )}
-          <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
-          Processando {activeJobs.length} produto{activeJobs.length !== 1 ? 's' : ''}...
-        </CardTitle>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle
+            className="flex items-center gap-2 text-base cursor-pointer select-none"
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? (
+              <ChevronDown className="h-4 w-4 text-amber-600" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-amber-600" />
+            )}
+            {activeJobs.length > 0 && (
+              <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
+            )}
+            {activeJobs.length > 0
+              ? `Processando ${activeJobs.length} produto${activeJobs.length !== 1 ? 's' : ''}...`
+              : `${errorJobs.length} job${errorJobs.length !== 1 ? 's' : ''} com erro`}
+          </CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResetStuck}
+            disabled={resetting}
+          >
+            {resetting ? (
+              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+            ) : (
+              <RotateCcw className="mr-1 h-3 w-3" />
+            )}
+            Reprocessar
+          </Button>
+        </div>
       </CardHeader>
       {expanded && (
         <CardContent>

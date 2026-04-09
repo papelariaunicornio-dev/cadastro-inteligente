@@ -27,10 +27,29 @@ export default function SettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Only send editable fields, not read-only ones like Id, CreatedAt
+      const {
+        nome_loja, segmento, publico_alvo, tom_de_voz, diferenciais,
+        regime_tributario, aliquota_impostos, margem_desejada,
+        comissao_ecommerce, comissao_ml, comissao_shopee,
+        frete_medio_unidade, taxas_fixas,
+        template_titulo, tamanho_max_titulo, instrucoes_descricao,
+        prefixo_sku, formato_sku,
+        tiny_token_encrypted, shopify_url, shopify_token_encrypted,
+      } = settings;
+
       await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
+        body: JSON.stringify({
+          nome_loja, segmento, publico_alvo, tom_de_voz, diferenciais,
+          regime_tributario, aliquota_impostos, margem_desejada,
+          comissao_ecommerce, comissao_ml, comissao_shopee,
+          frete_medio_unidade, taxas_fixas,
+          template_titulo, tamanho_max_titulo, instrucoes_descricao,
+          prefixo_sku, formato_sku,
+          tiny_token_encrypted, shopify_url, shopify_token_encrypted,
+        }),
       });
       toast.success('Configurações salvas');
     } catch {
