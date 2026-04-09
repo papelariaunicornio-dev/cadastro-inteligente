@@ -71,13 +71,26 @@ export function ItemsTable() {
 
             const showCheck = isMultiplosTab ? isPendingGroup : isSelected;
 
+            const handleRowClick = (e: React.MouseEvent) => {
+              // Don't toggle if clicking on the Und/Item input
+              if ((e.target as HTMLElement).closest('input')) return;
+              if (isLocked) return;
+              if (isMultiplosTab) {
+                togglePendingGroup(item.Id);
+              } else {
+                toggleItem(item.Id);
+              }
+            };
+
             return (
               <TableRow
                 key={item.Id}
+                onClick={handleRowClick}
                 className={cn(
+                  'cursor-pointer',
                   isSelected && 'bg-blue-50',
                   isPendingGroup && isMultiplosTab && 'bg-purple-50',
-                  isLocked && 'opacity-50',
+                  isLocked && 'opacity-50 cursor-not-allowed',
                   isOtherTab && !isLocked && 'opacity-70'
                 )}
               >
