@@ -21,19 +21,6 @@ export async function POST(request: NextRequest) {
     // Parse XML
     const { nf, items } = parseNFeXML(xmlString);
 
-    // Check for duplicate
-    const existing = await list<NfImport>(TABLES.NF_IMPORTS, {
-      where: `(chave_acesso,eq,${nf.chaveAcesso})`,
-      limit: 1,
-    });
-
-    if (existing.list.length > 0) {
-      return NextResponse.json(
-        { error: 'Esta NF já foi importada', chaveAcesso: nf.chaveAcesso },
-        { status: 409 }
-      );
-    }
-
     // Create NF import record
     const now = new Date().toISOString();
     const nfImport = await create<NfImport>(TABLES.NF_IMPORTS, {
