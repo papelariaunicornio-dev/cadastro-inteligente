@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -11,14 +12,32 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { useImportStore } from '@/store/import-store';
 import { cn } from '@/lib/utils';
+import type { NfItem } from '@/lib/types';
 
 function formatCurrency(value: number): string {
   return `R$ ${value.toLocaleString('pt-BR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+}
+
+type SortKey = 'codigo' | 'ean' | 'descricao' | 'quantidade' | 'unidades_por_item' | 'valor_unitario' | 'valor_ipi' | 'valor_total';
+type SortDir = 'asc' | 'desc';
+
+function getSortValue(item: NfItem, key: SortKey): string | number {
+  const val = item[key];
+  if (val == null) return '';
+  return typeof val === 'number' ? val : String(val).toLowerCase();
+}
+
+function SortIcon({ column, sortKey, sortDir }: { column: SortKey; sortKey: SortKey | null; sortDir: SortDir }) {
+  if (sortKey !== column) return <ArrowUpDown className="ml-1 inline h-3 w-3 text-muted-foreground/40" />;
+  return sortDir === 'asc'
+    ? <ArrowUp className="ml-1 inline h-3 w-3 text-primary" />
+    : <ArrowDown className="ml-1 inline h-3 w-3 text-primary" />;
 }
 
 export function ItemsTable() {
@@ -33,9 +52,41 @@ export function ItemsTable() {
     setUndItem,
   } = useImportStore();
 
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
   if (items.length === 0) return null;
 
   const isMultiplosTab = activeTab === 'multiplos_itens';
+
+  // Sort items
+  const sortedItems = [...items];
+  if (sortKey) {
+    sortedItems.sort((a, b) => {
+      const aVal = getSortValue(a, sortKey);
+      const bVal = getSortValue(b, sortKey);
+      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+
+  // Find which group an item belongs to (for numbering)
+  const getGroupIndex = (itemId: number): number | null => {
+    const idx = groups.findIndex((g) => g.itemIds.includes(itemId));
+    return idx >= 0 ? idx + 1 : null;
+  };
+
+  const headerClass = 'cursor-pointer select-none hover:text-foreground transition-colors';
 
   return (
     <div className="rounded-md border">
@@ -43,18 +94,32 @@ export function ItemsTable() {
         <TableHeader>
           <TableRow>
             <TableHead className="w-12"></TableHead>
-            <TableHead>Código</TableHead>
-            <TableHead>EAN</TableHead>
-            <TableHead className="max-w-[300px]">Produto</TableHead>
-            <TableHead className="text-center">Qtd</TableHead>
+            <TableHead className={headerClass} onClick={() => handleSort('codigo')}>
+              Código <SortIcon column="codigo" sortKey={sortKey} sortDir={sortDir} />
+            </TableHead>
+            <TableHead className={headerClass} onClick={() => handleSort('ean')}>
+              EAN <SortIcon column="ean" sortKey={sortKey} sortDir={sortDir} />
+            </TableHead>
+            <TableHead className={cn('max-w-[300px]', headerClass)} onClick={() => handleSort('descricao')}>
+              Produto <SortIcon column="descricao" sortKey={sortKey} sortDir={sortDir} />
+            </TableHead>
+            <TableHead className={cn('text-center', headerClass)} onClick={() => handleSort('quantidade')}>
+              Qtd <SortIcon column="quantidade" sortKey={sortKey} sortDir={sortDir} />
+            </TableHead>
             <TableHead className="text-center">Und/Item</TableHead>
-            <TableHead className="text-right">V. Unit.</TableHead>
-            <TableHead className="text-right">IPI</TableHead>
-            <TableHead className="text-right">V. Total</TableHead>
+            <TableHead className={cn('text-right', headerClass)} onClick={() => handleSort('valor_unitario')}>
+              V. Unit. <SortIcon column="valor_unitario" sortKey={sortKey} sortDir={sortDir} />
+            </TableHead>
+            <TableHead className={cn('text-right', headerClass)} onClick={() => handleSort('valor_ipi')}>
+              IPI <SortIcon column="valor_ipi" sortKey={sortKey} sortDir={sortDir} />
+            </TableHead>
+            <TableHead className={cn('text-right', headerClass)} onClick={() => handleSort('valor_total')}>
+              V. Total <SortIcon column="valor_total" sortKey={sortKey} sortDir={sortDir} />
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map((item) => {
+          {sortedItems.map((item) => {
             const classification = selections.get(item.Id);
             const isSelected = classification === activeTab;
             const isInGroup = groups.some((g) =>
@@ -64,15 +129,14 @@ export function ItemsTable() {
             const isOtherTab =
               classification != null && classification !== activeTab;
 
-            // Locked: in a group on non-multiplos tab, or classified differently
             const isLocked =
               (!isMultiplosTab && isInGroup) ||
               (isMultiplosTab && isInGroup);
 
             const showCheck = isMultiplosTab ? isPendingGroup : isSelected;
+            const groupNum = getGroupIndex(item.Id);
 
             const handleRowClick = (e: React.MouseEvent) => {
-              // Don't toggle if clicking on the Und/Item input
               if ((e.target as HTMLElement).closest('input')) return;
               if (isLocked) return;
               if (isMultiplosTab) {
@@ -130,7 +194,9 @@ export function ItemsTable() {
                     >
                       {classification === 'sem_variacao' && 'sem var.'}
                       {classification === 'com_variacao' && 'com var.'}
-                      {classification === 'multiplos_itens' && 'grupo'}
+                      {classification === 'multiplos_itens' && (
+                        <>G{groupNum}</>
+                      )}
                     </Badge>
                   )}
                 </TableCell>
