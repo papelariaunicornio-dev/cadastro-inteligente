@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertCircle, CheckCircle2, Search, Globe, Image, Sparkles } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2, Search, Globe, Image, Sparkles, ChevronDown, ChevronRight } from 'lucide-react';
 import type { ProcessingJob } from '@/lib/types';
 
 const STATUS_CONFIG: Record<string, {
@@ -30,6 +30,7 @@ const TIPO_LABEL: Record<string, string> = {
 export function ProcessingJobs() {
   const [jobs, setJobs] = useState<ProcessingJob[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -58,41 +59,51 @@ export function ProcessingJobs() {
 
   return (
     <Card className="border-amber-200 bg-amber-50/50">
-      <CardHeader className="pb-3">
+      <CardHeader
+        className="pb-3 cursor-pointer select-none"
+        onClick={() => setExpanded((v) => !v)}
+      >
         <CardTitle className="flex items-center gap-2 text-base">
+          {expanded ? (
+            <ChevronDown className="h-4 w-4 text-amber-600" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-amber-600" />
+          )}
           <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
           Processando {activeJobs.length} produto{activeJobs.length !== 1 ? 's' : ''}...
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
-          {activeJobs.map((job) => {
-            const config = STATUS_CONFIG[job.status] || STATUS_CONFIG.pendente;
-            const Icon = config.icon;
-            const itemIds: number[] = job.item_ids ? JSON.parse(job.item_ids) : [];
+      {expanded && (
+        <CardContent>
+          <div className="space-y-2">
+            {activeJobs.map((job) => {
+              const config = STATUS_CONFIG[job.status] || STATUS_CONFIG.pendente;
+              const Icon = config.icon;
+              const itemIds: number[] = job.item_ids ? JSON.parse(job.item_ids) : [];
 
-            return (
-              <div
-                key={job.Id}
-                className="flex items-center gap-3 rounded-lg bg-white p-3 shadow-sm"
-              >
-                <Icon
-                  className={`h-5 w-5 ${config.color} ${config.animate ? 'animate-pulse' : ''}`}
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{config.label}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {TIPO_LABEL[job.tipo] || job.tipo} · {itemIds.length} item{itemIds.length !== 1 ? 's' : ''}
-                  </p>
+              return (
+                <div
+                  key={job.Id}
+                  className="flex items-center gap-3 rounded-lg bg-white p-3 shadow-sm"
+                >
+                  <Icon
+                    className={`h-5 w-5 ${config.color} ${config.animate ? 'animate-pulse' : ''}`}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{config.label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {TIPO_LABEL[job.tipo] || job.tipo} · {itemIds.length} item{itemIds.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px]">
+                    {job.status}
+                  </Badge>
                 </div>
-                <Badge variant="outline" className="text-[10px]">
-                  {job.status}
-                </Badge>
-              </div>
-            );
-          })}
-        </div>
-      </CardContent>
+              );
+            })}
+          </div>
+        </CardContent>
+      )}
     </Card>
   );
 }
