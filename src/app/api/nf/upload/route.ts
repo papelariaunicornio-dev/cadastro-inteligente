@@ -51,8 +51,10 @@ export async function POST(request: NextRequest) {
       created_at: now,
     });
 
-    // Create NF items (bulk)
-    const nfItems = await bulkCreate<NfItem>(
+    // Create NF items (bulk) — with rollback on failure
+    let nfItems: NfItem[];
+    try {
+      nfItems = await bulkCreate<NfItem>(
       TABLES.NF_ITEMS,
       items.map((item) => ({
         nf_import_id: String(nfImport.Id),
@@ -74,11 +76,26 @@ export async function POST(request: NextRequest) {
         selecionado: false,
         created_at: now,
       }))
-    );
+      );
+    } catch (bulkError) {
+      // Rollback: delete the NF import if items failed
+      console.error('Bulk create failed, rolling back NF import:', bulkError);
+      const { remove } = await import('@/lib/nocodb');
+      await remove(TABLES.NF_IMPORTS, nfImport.Id).catch(() => {});
+      throw bulkError;
+    }
+
+    // Fetch the actual items back from NocoDB (bulkCreate only returns IDs)
+    const { list: listFn } = await import('@/lib/nocodb');
+    const savedItems = await listFn<NfItem>(TABLES.NF_ITEMS, {
+      where: `(nf_import_id,eq,${nfImport.Id})`,
+      sort: 'n_item',
+      limit: 200,
+    });
 
     return NextResponse.json({
       nfImport,
-      items: nfItems,
+      items: savedItems.list,
       parsed: { nf, itemCount: items.length },
     });
   } catch (error) {
