@@ -13,8 +13,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Loader2, Eye, Package, Clock, CheckCircle } from 'lucide-react';
+import { Loader2, Eye, Package, Clock, CheckCircle, Upload } from 'lucide-react';
 import type { ProductDraft } from '@/lib/types';
+import { ProcessingJobs } from '@/components/products/processing-jobs';
 
 interface Counts {
   processando: number;
@@ -71,7 +72,18 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Produtos</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Produtos</h1>
+        <Link href="/import">
+          <Button variant="outline">
+            <Upload className="mr-2 h-4 w-4" />
+            Nova importação
+          </Button>
+        </Link>
+      </div>
+
+      {/* Processing jobs (real-time) */}
+      <ProcessingJobs />
 
       {/* Status cards */}
       <div className="grid gap-4 md:grid-cols-3">
