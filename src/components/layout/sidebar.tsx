@@ -10,12 +10,14 @@ import {
   Settings,
   LogOut,
   Sparkles,
+  Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/import', label: 'Importar XML', icon: Upload },
+  { href: '/processing', label: 'Processamento', icon: Activity },
   { href: '/products', label: 'Produtos', icon: Package },
   { href: '/settings', label: 'Configurações', icon: Settings },
 ];
