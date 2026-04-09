@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ const STATUS_BADGE: Record<string, { label: string; variant: 'default' | 'second
 };
 
 export default function ProductsPage() {
+  const router = useRouter();
   const [counts, setCounts] = useState<Counts>({ processando: 0, aguardando: 0, aprovados: 0 });
   const [products, setProducts] = useState<ProductDraft[]>([]);
   const [loading, setLoading] = useState(true);
@@ -156,7 +158,11 @@ export default function ProductsPage() {
                 const badge = STATUS_BADGE[product.status] || STATUS_BADGE.aguardando;
 
                 return (
-                  <TableRow key={product.Id}>
+                  <TableRow
+                    key={product.Id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => router.push(`/products/${product.Id}`)}
+                  >
                     <TableCell>
                       {img ? (
                         <img
