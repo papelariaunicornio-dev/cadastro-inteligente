@@ -179,6 +179,9 @@ export interface ProductDraft {
   fontes: string | null; // JSON
   destino_envio: string | null; // JSON string[]
   resultado_envio: string | null; // JSON
+  titulo_seo: string | null;
+  descricao_seo: string | null;
+  palavras_chave: string | null;
   enviado_at: string | null;
   created_at: string;
   updated_at: string;

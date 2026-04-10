@@ -32,6 +32,16 @@ import type {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
+// Color mapping for fonte/tipo tags
+function fonteBadgeClass(tipo: string): string {
+  switch (tipo) {
+    case 'marca': return 'border-green-400 bg-green-50 text-green-800';
+    case 'ecommerce': return 'border-blue-400 bg-blue-50 text-blue-800';
+    case 'marketplace': return 'border-orange-400 bg-orange-50 text-orange-800';
+    default: return '';
+  }
+}
+
 function formatCurrency(value: number | null | undefined): string {
   if (value == null) return '—';
   return `R$ ${Number(value).toLocaleString('pt-BR', {
@@ -63,6 +73,7 @@ export default function ProductEditPage({
   const [descricaoSeo, setDescricaoSeo] = useState('');
   const [palavrasChave, setPalavrasChave] = useState('');
   const [images, setImages] = useState<ProductImage[]>([]);
+  const [imageResolutions, setImageResolutions] = useState<Map<number, { w: number; h: number }>>(new Map());
   const [variacoes, setVariacoes] = useState<ProductVariation[]>([]);
   const [tipoVariacao, setTipoVariacao] = useState('');
 
@@ -123,6 +134,32 @@ export default function ProductEditPage({
   };
 
   const selectedImagesCount = images.filter((i) => i.selecionada).length;
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    Array.from(files).forEach((file) => {
+      const url = URL.createObjectURL(file);
+      setImages((prev) => [
+        ...prev,
+        {
+          url,
+          source: 'upload',
+          selecionada: true,
+          ordem: prev.length,
+        },
+      ]);
+    });
+    e.target.value = '';
+  };
+
+  const handleImageLoaded = (index: number, w: number, h: number) => {
+    setImageResolutions((prev) => {
+      const next = new Map(prev);
+      next.set(index, { w, h });
+      return next;
+    });
+  };
 
   // ==========================================
   // Variation helpers
@@ -374,74 +411,124 @@ export default function ProductEditPage({
       </Card>
 
       {/* Section 2: Images */}
-      {images.length > 0 && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Imagens ({selectedImagesCount}/{images.length} selecionadas)</CardTitle>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Imagens ({selectedImagesCount}/{images.length} selecionadas)</CardTitle>
+            {isEditable && (
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={selectAllImages}>
+                  <ImagePlus className="mr-1 h-3 w-3" />
+                  Selecionar todas
+                </Button>
+                <Button variant="outline" size="sm" onClick={deselectAllImages}>
+                  <ImageOff className="mr-1 h-3 w-3" />
+                  Desmarcar todas
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = 'image/*';
+                    input.multiple = true;
+                    input.onchange = (e) => handleImageUpload(e as unknown as React.ChangeEvent<HTMLInputElement>);
+                    input.click();
+                  }}
+                >
+                  <Plus className="mr-1 h-3 w-3" />
+                  Minhas imagens
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {images.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-8 text-center">
+              <ImageOff className="h-10 w-10 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">Nenhuma imagem encontrada</p>
               {isEditable && (
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={selectAllImages}>
-                    <ImagePlus className="mr-1 h-3 w-3" />
-                    Selecionar todas
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={deselectAllImages}>
-                    <ImageOff className="mr-1 h-3 w-3" />
-                    Desmarcar todas
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = 'image/*';
+                    input.multiple = true;
+                    input.onchange = (e) => handleImageUpload(e as unknown as React.ChangeEvent<HTMLInputElement>);
+                    input.click();
+                  }}
+                >
+                  <Plus className="mr-1 h-3 w-3" /> Adicionar imagens
+                </Button>
               )}
             </div>
-          </CardHeader>
-          <CardContent>
+          ) : (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {images.map((img, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    'relative group cursor-pointer rounded-lg border-2 transition-all',
-                    img.selecionada
-                      ? 'border-primary ring-2 ring-primary/20'
-                      : 'border-transparent hover:border-gray-300'
-                  )}
-                  onClick={() => isEditable && toggleImage(i)}
-                >
-                  <div className="aspect-square overflow-hidden rounded-lg bg-gray-100">
-                    <img
-                      src={img.url}
-                      alt={`Imagem ${i + 1}`}
-                      className="h-full w-full object-contain"
-                      loading="lazy"
-                      onLoad={(e) => {
-                        const imgEl = e.currentTarget;
-                        const badge = imgEl.parentElement?.parentElement?.querySelector('[data-res]');
-                        if (badge) badge.textContent = `${imgEl.naturalWidth}×${imgEl.naturalHeight}`;
-                      }}
-                    />
-                  </div>
-                  <div className="absolute left-2 top-2">
-                    <Checkbox checked={img.selecionada} disabled={!isEditable} />
-                  </div>
+              {images.map((img, i) => {
+                const res = imageResolutions.get(i);
+                const isHighRes = res && (res.w > 800 || res.h > 800);
+                return (
                   <div
-                    data-res
-                    className="absolute left-2 bottom-2 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-mono text-white"
+                    key={i}
+                    className={cn(
+                      'relative group cursor-pointer rounded-lg border-2 transition-all',
+                      img.selecionada
+                        ? 'border-primary ring-2 ring-primary/20'
+                        : 'border-transparent hover:border-gray-300'
+                    )}
+                    onClick={() => isEditable && toggleImage(i)}
                   >
-                    ...
+                    <div className="aspect-square overflow-hidden rounded-lg bg-gray-100">
+                      <img
+                        src={img.url}
+                        alt={`Imagem ${i + 1}`}
+                        className="h-full w-full object-contain"
+                        loading="lazy"
+                        onLoad={(e) => {
+                          const el = e.currentTarget;
+                          handleImageLoaded(i, el.naturalWidth, el.naturalHeight);
+                        }}
+                      />
+                    </div>
+                    <div className="absolute left-2 top-2">
+                      <Checkbox checked={img.selecionada} disabled={!isEditable} />
+                    </div>
+                    {res && (
+                      <div
+                        className={cn(
+                          'absolute left-2 bottom-2 rounded px-1.5 py-0.5 text-[9px] font-mono',
+                          isHighRes
+                            ? 'bg-green-600 text-white'
+                            : 'bg-black/60 text-white'
+                        )}
+                      >
+                        {res.w}×{res.h}
+                      </div>
+                    )}
+                    {img.source === 'upload' && (
+                      <Badge variant="secondary" className="absolute right-2 bottom-2 text-[9px]">
+                        Upload
+                      </Badge>
+                    )}
+                    {!img.selecionada && (
+                      <div className="absolute inset-0 rounded-lg border-2 border-dashed border-gray-300 pointer-events-none" />
+                    )}
+                    {img.selecionada && i === images.findIndex((im) => im.selecionada) && (
+                      <Badge className="absolute right-2 top-2 text-[10px]">
+                        Principal
+                      </Badge>
+                    )}
                   </div>
-                  {!img.selecionada && (
-                    <div className="absolute inset-0 rounded-lg border-2 border-dashed border-gray-300 pointer-events-none" />
-                  )}
-                  {img.selecionada && i === images.findIndex((im) => im.selecionada) && (
-                    <Badge className="absolute right-2 top-2 text-[10px]">
-                      Principal
-                    </Badge>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       {/* Section 3: Variations */}
       <Card>
@@ -636,7 +723,7 @@ export default function ProductEditPage({
               <div className="space-y-1">
                 {precosEncontrados.map((p, i) => (
                   <div key={i} className="flex items-center gap-2 text-sm">
-                    <Badge variant="outline" className="text-[10px]">{p.fonte}</Badge>
+                    <Badge variant="outline" className={cn('text-[10px]', fonteBadgeClass(p.fonte))}>{p.fonte}</Badge>
                     <span className="font-mono">{formatCurrency(p.preco)}</span>
                     <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate max-w-[300px]">
                       {(() => { try { return new URL(p.url).hostname; } catch { return p.url; } })()}
@@ -660,7 +747,7 @@ export default function ProductEditPage({
             <div className="space-y-1">
               {fontes.map((f: { tipo: string; url: string; titulo?: string }, i: number) => (
                 <div key={i} className="flex items-center gap-2 text-sm">
-                  <Badge variant="outline" className="text-[10px]">{f.tipo}</Badge>
+                  <Badge variant="outline" className={cn('text-[10px]', fonteBadgeClass(f.tipo))}>{f.tipo}</Badge>
                   <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
                     {f.titulo || f.url}
                     <ExternalLink className="ml-1 inline h-3 w-3" />

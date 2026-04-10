@@ -20,6 +20,10 @@ interface GeneratedProduct {
     profundidade: number | null;
   };
   atributos: Record<string, string>;
+  // SEO
+  titulo_seo: string;
+  descricao_seo: string;
+  palavras_chave: string;
   // For com_variacao type
   tem_variacoes: boolean;
   tipo_variacao: string | null;
@@ -137,6 +141,9 @@ export async function generateProductDraft(
   "peso_estimado": number ou null (em kg),
   "dimensoes": {"altura": number|null, "largura": number|null, "profundidade": number|null},
   "atributos": {"chave": "valor"},
+  "titulo_seo": "string (max 70 chars, otimizado para Google)",
+  "descricao_seo": "string (max 160 chars, meta description persuasiva)",
+  "palavras_chave": "string (palavras-chave separadas por vírgula, para SEO)",
   "tem_variacoes": boolean,
   "tipo_variacao": "string ou null (ex: Cor, Tamanho)",
   "variacoes": [{"nome": "string", "atributos": {"chave": "valor"}}]
