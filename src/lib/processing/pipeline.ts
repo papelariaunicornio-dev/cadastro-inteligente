@@ -30,6 +30,9 @@ import {
   calculateSuggestedPrice,
   calculateAveragePrices,
 } from './price-engine';
+import { psychologicalRound } from '../rules/pricing-rules';
+import { validateSku } from '../rules/sku-rules';
+import { validateTitle } from '../rules/title-rules';
 
 const STEP_TIMEOUT_MS = 120_000;
 
@@ -271,7 +274,7 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
       preco_sugerido: priceComposition.preco_final,
       preco_medio_ecommerce: avgPrices.ecommerce,
       preco_medio_marketplace: avgPrices.marketplace,
-      preco_final: priceComposition.preco_final,
+      preco_final: psychologicalRound(priceComposition.preco_final),
       precos_encontrados: JSON.stringify(precosEncontrados),
       composicao_preco: JSON.stringify(priceComposition),
       tem_variacoes: generated.tem_variacoes || variacoes.length > 0,

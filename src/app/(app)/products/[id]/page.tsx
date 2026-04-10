@@ -31,6 +31,7 @@ import type {
 } from '@/lib/types';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { ScoreBadge } from '@/components/products/edit/score-badge';
 
 // Color mapping for fonte/tipo tags
 function fonteBadgeClass(tipo: string): string {
@@ -81,6 +82,11 @@ export default function ProductEditPage({
   const [sendTiny, setSendTiny] = useState(false);
   const [sendShopify, setSendShopify] = useState(false);
 
+  // Scores (live validation)
+  const [skuScore, setSkuScore] = useState<{ score: number; status: string; flags: { severity: string; message: string }[] } | null>(null);
+  const [titleScore, setTitleScore] = useState<{ score: number; status: string; flags: { severity: string; message: string }[]; suggestions: string[] } | null>(null);
+  const [pricingScore, setPricingScore] = useState<{ score: number; status: string; flags: { severity: string; message: string }[]; guardrails: { precoMinimo: number; margemLiquida: number; margemLiquidaPct: number }; precoArredondado: number } | null>(null);
+
   useEffect(() => {
     fetch(`/api/products/${id}`)
       .then((r) => r.json())
@@ -113,6 +119,65 @@ export default function ProductEditPage({
       .catch(() => toast.error('Erro ao carregar produto'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // ==========================================
+  // Live validation (debounced)
+  // ==========================================
+  useEffect(() => {
+    if (!sku) return;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'sku', data: { sku } }),
+        });
+        setSkuScore(await res.json());
+      } catch { /* ignore */ }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [sku]);
+
+  useEffect(() => {
+    if (!titulo) return;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'title', data: { title: titulo, marca } }),
+        });
+        setTitleScore(await res.json());
+      } catch { /* ignore */ }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [titulo, marca]);
+
+  useEffect(() => {
+    if (!precoFinal || !product) return;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'pricing',
+            data: {
+              custoComIpi: product.custo_com_ipi || 0,
+              freteMedio: 0,
+              precoVenda: parseFloat(precoFinal) || 0,
+              aliquotaImpostos: 6,
+              comissaoCanal: 0,
+              margemMinima: 10,
+              precoMedioMercado: product.preco_medio_ecommerce || product.preco_medio_marketplace,
+            },
+          }),
+        });
+        setPricingScore(await res.json());
+      } catch { /* ignore */ }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [precoFinal, product]);
 
   // ==========================================
   // Image helpers
@@ -333,7 +398,10 @@ export default function ProductEditPage({
           <div className="space-y-2">
             <Label>Título</Label>
             <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} disabled={!isEditable} maxLength={150} />
-            <p className="text-xs text-muted-foreground">{titulo.length}/150</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">{titulo.length}/150</p>
+              <ScoreBadge label="Title Score" score={titleScore?.score ?? null} status={titleScore?.status ?? null} flags={titleScore?.flags} suggestions={titleScore?.suggestions} />
+            </div>
           </div>
           <div className="space-y-2">
             <Label>Descrição curta</Label>
@@ -353,8 +421,14 @@ export default function ProductEditPage({
               <Input value={categoria} onChange={(e) => setCategoria(e.target.value)} disabled={!isEditable} />
             </div>
             <div className="space-y-2">
-              <Label>SKU</Label>
+              <div className="flex items-center justify-between">
+                <Label>SKU</Label>
+                <ScoreBadge label="" score={skuScore?.score ?? null} status={skuScore?.status ?? null} compact />
+              </div>
               <Input value={sku} onChange={(e) => setSku(e.target.value)} disabled={!isEditable} />
+              {skuScore && skuScore.flags.length > 0 && (
+                <p className="text-[10px] text-red-600">{skuScore.flags[0].message}</p>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-3 gap-4">
@@ -687,7 +761,34 @@ export default function ProductEditPage({
                   disabled={!isEditable}
                   className="max-w-[200px] text-xl font-bold"
                 />
+                {isEditable && pricingScore && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPrecoFinal(pricingScore.precoArredondado.toFixed(2))}
+                    title="Arredondamento psicológico (.90 ou .99)"
+                  >
+                    → R$ {pricingScore.precoArredondado.toFixed(2)}
+                  </Button>
+                )}
               </div>
+              {pricingScore && (
+                <div className="mt-2 space-y-1">
+                  <ScoreBadge
+                    label="Pricing Score"
+                    score={pricingScore.score}
+                    status={pricingScore.status}
+                    flags={pricingScore.flags}
+                  />
+                  {pricingScore.guardrails && (
+                    <div className="flex gap-4 text-[10px] text-muted-foreground">
+                      <span>Piso: R$ {pricingScore.guardrails.precoMinimo.toFixed(2)}</span>
+                      <span>Margem: {pricingScore.guardrails.margemLiquidaPct.toFixed(1)}%</span>
+                      <span>(R$ {pricingScore.guardrails.margemLiquida.toFixed(2)})</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
