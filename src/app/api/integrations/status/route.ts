@@ -14,6 +14,10 @@ export async function GET() {
       configured: !!(process.env.SHOPIFY_STORE_URL && process.env.SHOPIFY_ACCESS_TOKEN),
       label: 'Shopify',
     },
+    nuvemshop: {
+      configured: !!(process.env.NUVEMSHOP_STORE_ID && process.env.NUVEMSHOP_ACCESS_TOKEN),
+      label: 'Nuvemshop',
+    },
     firecrawl: {
       configured: !!process.env.FIRECRAWL_API_KEY,
       label: 'Firecrawl',

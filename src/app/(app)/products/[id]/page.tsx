@@ -81,6 +81,7 @@ export default function ProductEditPage({
   // Send destinations
   const [sendTiny, setSendTiny] = useState(false);
   const [sendShopify, setSendShopify] = useState(false);
+  const [sendNuvemshop, setSendNuvemshop] = useState(false);
 
   // Scores (live validation)
   const [skuScore, setSkuScore] = useState<{ score: number; status: string; flags: { severity: string; message: string }[] } | null>(null);
@@ -115,6 +116,7 @@ export default function ProductEditPage({
         const destinos: string[] = data.destino_envio ? JSON.parse(data.destino_envio) : [];
         setSendTiny(destinos.includes('tiny'));
         setSendShopify(destinos.includes('shopify'));
+        setSendNuvemshop(destinos.includes('nuvemshop'));
       })
       .catch(() => toast.error('Erro ao carregar produto'))
       .finally(() => setLoading(false));
@@ -279,6 +281,7 @@ export default function ProductEditPage({
     const destinos: string[] = [];
     if (sendTiny) destinos.push('tiny');
     if (sendShopify) destinos.push('shopify');
+    if (sendNuvemshop) destinos.push('nuvemshop');
 
     return {
       titulo,
@@ -316,7 +319,7 @@ export default function ProductEditPage({
   };
 
   const handleApprove = async () => {
-    if (!sendTiny && !sendShopify) {
+    if (!sendTiny && !sendShopify && !sendNuvemshop) {
       toast.error('Selecione ao menos uma plataforma de destino');
       return;
     }
@@ -875,6 +878,10 @@ export default function ProductEditPage({
                 <Checkbox checked={sendShopify} onCheckedChange={(v) => setSendShopify(!!v)} />
                 <span className="text-sm">Shopify</span>
               </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Checkbox checked={sendNuvemshop} onCheckedChange={(v) => setSendNuvemshop(!!v)} />
+                <span className="text-sm">Nuvemshop</span>
+              </label>
             </div>
           </div>
 
@@ -890,7 +897,7 @@ export default function ProductEditPage({
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Salvar rascunho
               </Button>
-              <Button onClick={handleApprove} disabled={saving || (!sendTiny && !sendShopify)}>
+              <Button onClick={handleApprove} disabled={saving || (!sendTiny && !sendShopify && !sendNuvemshop)}>
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
                 Aprovar e enviar
               </Button>
