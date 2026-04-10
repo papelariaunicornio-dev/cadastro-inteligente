@@ -5,51 +5,49 @@ import type { ProcessingJob } from '@/lib/types';
 import { enqueueJob } from '@/lib/queue';
 
 /**
- * Reset jobs stuck in intermediate states (not pendente/concluido/erro)
- * and re-enqueue them + any pending jobs via BullMQ.
+ * Reset stuck/failed jobs and re-enqueue them in BullMQ.
+ * Also picks up any orphaned 'pendente' jobs from NocoDB audit log.
  */
 export async function POST() {
   try {
-    const allJobs = await list<ProcessingJob>(TABLES.PROCESSING_JOBS, {
-      where: '(status,neq,concluido)~and(status,neq,erro)',
+    // Find jobs that are stuck or errored in audit log
+    const stuckJobs = await list<ProcessingJob>(TABLES.PROCESSING_JOBS, {
+      where: '(status,neq,concluido)',
       limit: 100,
     });
 
-    const now = Date.now();
-    const resetIds: number[] = [];
+    const now = new Date().toISOString();
+    let resetCount = 0;
+    let enqueuedCount = 0;
 
-    for (const job of allJobs.list) {
-      const isStuck =
-        job.status !== 'pendente' &&
-        job.updated_at &&
-        now - new Date(job.updated_at).getTime() > 5 * 60 * 1000; // 5 min
-
-      if (isStuck) {
+    for (const job of stuckJobs.list) {
+      // Reset status in audit log
+      if (job.status !== 'pendente') {
         await update(TABLES.PROCESSING_JOBS, job.Id, {
           status: 'pendente',
           erro_mensagem: null,
-          updated_at: new Date().toISOString(),
+          updated_at: now,
         });
-        resetIds.push(job.Id);
+        resetCount++;
       }
-    }
 
-    // Re-fetch all pending jobs and enqueue them
-    const pendingJobs = await list<ProcessingJob>(TABLES.PROCESSING_JOBS, {
-      where: '(status,eq,pendente)',
-      limit: 100,
-    });
-
-    const jobIds = pendingJobs.list.map((j) => j.Id);
-    for (const jid of jobIds) {
-      await enqueueJob(jid);
+      // Re-enqueue in BullMQ
+      const itemIds: number[] = JSON.parse(job.item_ids || '[]');
+      await enqueueJob({
+        jobId: job.Id,
+        nfImportId: job.nf_import_id,
+        tipo: job.tipo,
+        itemIds,
+        grupoId: job.grupo_id,
+      });
+      enqueuedCount++;
     }
 
     return NextResponse.json({
       success: true,
-      reset: resetIds.length,
-      pending: jobIds.length,
-      message: `${resetIds.length} jobs resetados, ${jobIds.length} jobs em fila para processamento`,
+      reset: resetCount,
+      enqueued: enqueuedCount,
+      message: `${resetCount} jobs resetados, ${enqueuedCount} re-enfileirados no BullMQ`,
     });
   } catch (error) {
     console.error('Reset stuck error:', error);

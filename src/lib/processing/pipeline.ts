@@ -1,35 +1,26 @@
 /**
- * Main processing pipeline orchestrator.
- * Runs each job through: search → scrape → images → generate → price → save draft.
- * Each step has a timeout to prevent hanging.
+ * Processing pipeline.
+ *
+ * Architecture:
+ * - BullMQ Job is the source of truth for status and intermediate data
+ * - Progress updates go to job.progress (Redis), NOT to NocoDB
+ * - NocoDB processing_jobs table is only updated at start (status=processando)
+ *   and at end (status=concluido/erro) as an audit log
+ * - The product_draft is the only business output saved to NocoDB
  */
 
+import type { Job } from 'bullmq';
 import { get, update, create, list } from '@/lib/nocodb';
 import { TABLES } from '@/lib/nocodb-tables';
-
-const STEP_TIMEOUT_MS = 120_000; // 2 minutes per step
-
-/**
- * Wrap an async operation with a timeout.
- */
-async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`Timeout: ${label} excedeu ${ms / 1000}s`)), ms)
-    ),
-  ]);
-}
 import type {
-  ProcessingJob,
   NfItem,
   NfImport,
   ProductDraft,
   UserSettings,
-  JobStatus,
   ScrapedData,
   PriceFound,
 } from '@/lib/types';
+import type { JobInput, JobProgress } from '@/lib/queue';
 import { searchProduct } from './search';
 import { scrapePages } from './scraper';
 import { collectImages } from './images';
@@ -40,24 +31,17 @@ import {
   calculateAveragePrices,
 } from './price-engine';
 
-/**
- * Update job status in NocoDB.
- */
-async function setJobStatus(
-  jobId: number,
-  status: JobStatus,
-  extra?: Partial<ProcessingJob>
-): Promise<void> {
-  await update(TABLES.PROCESSING_JOBS, jobId, {
-    status,
-    updated_at: new Date().toISOString(),
-    ...extra,
-  });
+const STEP_TIMEOUT_MS = 120_000;
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout: ${label} excedeu ${ms / 1000}s`)), ms)
+    ),
+  ]);
 }
 
-/**
- * Load user settings (or defaults).
- */
 async function loadSettings(): Promise<Partial<UserSettings> | null> {
   try {
     const result = await list<UserSettings>(TABLES.USER_SETTINGS, {
@@ -71,42 +55,40 @@ async function loadSettings(): Promise<Partial<UserSettings> | null> {
 }
 
 /**
- * Process a single job end-to-end.
+ * Process a job from BullMQ queue.
+ * All intermediate state stored in job.progress (Redis).
+ * NocoDB only gets the final product_draft + audit log update.
  */
-export async function processJob(jobId: number): Promise<void> {
-  console.log(`[Pipeline] Starting job ${jobId}`);
+export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
+  const { jobId, nfImportId, tipo, itemIds } = job.data;
+
+  const updateProgress = async (progress: JobProgress) => {
+    await job.updateProgress(progress);
+  };
 
   try {
-    // Load job
-    const job = await get<ProcessingJob>(TABLES.PROCESSING_JOBS, jobId);
+    // Mark audit log as processing
+    await update(TABLES.PROCESSING_JOBS, jobId, {
+      status: 'processando',
+      updated_at: new Date().toISOString(),
+    }).catch(() => {}); // Non-critical
 
-    // Load NF import
-    const nfImport = await get<NfImport>(
-      TABLES.NF_IMPORTS,
-      job.nf_import_id
-    );
-
-    // Load items
-    const itemIds: number[] = JSON.parse(job.item_ids);
+    // Load data from NocoDB
+    const nfImport = await get<NfImport>(TABLES.NF_IMPORTS, nfImportId);
     const allItems = await list<NfItem>(TABLES.NF_ITEMS, {
-      where: `(nf_import_id,eq,${job.nf_import_id})`,
+      where: `(nf_import_id,eq,${nfImportId})`,
       limit: 200,
     });
     const items = allItems.list.filter((item) => itemIds.includes(item.Id));
 
     if (items.length === 0) {
-      await setJobStatus(jobId, 'erro', {
-        erro_mensagem: 'Nenhum item encontrado para este job',
-      });
-      return;
+      throw new Error('Nenhum item encontrado para este job');
     }
 
-    // Load settings
     const settings = await loadSettings();
 
-    // ========== Step 1: SEARCH ==========
-    await setJobStatus(jobId, 'pesquisando');
-    console.log(`[Pipeline] Job ${jobId}: searching...`);
+    // ========== SEARCH ==========
+    await updateProgress({ step: 'pesquisando', message: 'Buscando produto na web...' });
 
     const searchResult = await withTimeout(
       searchProduct({
@@ -119,13 +101,26 @@ export async function processJob(jobId: number): Promise<void> {
       'search'
     );
 
-    await setJobStatus(jobId, 'pesquisando', {
-      urls_encontradas: JSON.stringify(searchResult.classified),
+    await updateProgress({
+      step: 'pesquisando',
+      message: `Encontradas ${searchResult.allUrls.length} URLs`,
+      searchResults: {
+        brand: searchResult.brand,
+        urls: searchResult.classified,
+        totalUrls: searchResult.allUrls.length,
+      },
     });
 
-    // ========== Step 2: SCRAPE ==========
-    await setJobStatus(jobId, 'scraping');
-    console.log(`[Pipeline] Job ${jobId}: scraping ${searchResult.allUrls.length} URLs...`);
+    // ========== SCRAPE ==========
+    await updateProgress({
+      step: 'scraping',
+      message: 'Extraindo dados das páginas...',
+      searchResults: {
+        brand: searchResult.brand,
+        urls: searchResult.classified,
+        totalUrls: searchResult.allUrls.length,
+      },
+    });
 
     const scrapedData = await withTimeout(
       scrapePages(searchResult.classified),
@@ -133,33 +128,81 @@ export async function processJob(jobId: number): Promise<void> {
       'scrape'
     );
 
-    await setJobStatus(jobId, 'scraping', {
-      dados_scraping: JSON.stringify(
-        scrapedData.map((d) => ({
-          url: d.url,
-          tipo: d.tipo,
-          titulo: d.titulo,
-          preco: d.preco,
-          hasDescription: !!d.descricao,
-          imageCount: d.imagens?.length || 0,
-        }))
-      ),
+    const scrapingSummaries = scrapedData.map((d) => ({
+      url: d.url,
+      tipo: d.tipo,
+      titulo: d.titulo,
+      preco: d.preco,
+      hasDescription: !!d.descricao,
+      imageCount: d.imagens?.length || 0,
+    }));
+
+    await updateProgress({
+      step: 'scraping',
+      message: `Extraídas ${scrapedData.length} páginas`,
+      searchResults: {
+        brand: searchResult.brand,
+        urls: searchResult.classified,
+        totalUrls: searchResult.allUrls.length,
+      },
+      scrapingResults: {
+        pagesScraped: scrapedData.length,
+        summaries: scrapingSummaries,
+      },
     });
 
-    // ========== Step 3: IMAGES ==========
-    await setJobStatus(jobId, 'buscando_imagens');
-    console.log(`[Pipeline] Job ${jobId}: collecting images...`);
+    // ========== IMAGES ==========
+    await updateProgress({
+      step: 'buscando_imagens',
+      message: 'Coletando imagens...',
+      searchResults: {
+        brand: searchResult.brand,
+        urls: searchResult.classified,
+        totalUrls: searchResult.allUrls.length,
+      },
+      scrapingResults: {
+        pagesScraped: scrapedData.length,
+        summaries: scrapingSummaries,
+      },
+    });
 
     const images = collectImages(scrapedData);
 
-    // ========== Step 4: GENERATE ==========
-    await setJobStatus(jobId, 'gerando');
-    console.log(`[Pipeline] Job ${jobId}: generating with AI...`);
+    await updateProgress({
+      step: 'buscando_imagens',
+      message: `${images.length} imagens encontradas`,
+      searchResults: {
+        brand: searchResult.brand,
+        urls: searchResult.classified,
+        totalUrls: searchResult.allUrls.length,
+      },
+      scrapingResults: {
+        pagesScraped: scrapedData.length,
+        summaries: scrapingSummaries,
+      },
+      imagesFound: images.length,
+    });
+
+    // ========== GENERATE ==========
+    await updateProgress({
+      step: 'gerando',
+      message: 'Gerando cadastro com IA...',
+      searchResults: {
+        brand: searchResult.brand,
+        urls: searchResult.classified,
+        totalUrls: searchResult.allUrls.length,
+      },
+      scrapingResults: {
+        pagesScraped: scrapedData.length,
+        summaries: scrapingSummaries,
+      },
+      imagesFound: images.length,
+    });
 
     const generated = await withTimeout(
       generateProductDraft({
         items,
-        tipo: job.tipo as 'sem_variacao' | 'com_variacao' | 'multiplos_itens',
+        tipo: tipo as 'sem_variacao' | 'com_variacao' | 'multiplos_itens',
         brand: searchResult.brand,
         scrapedData,
         settings,
@@ -168,10 +211,9 @@ export async function processJob(jobId: number): Promise<void> {
       'generate'
     );
 
-    // ========== Step 5: PRICE ==========
+    // ========== PRICE ==========
     const primaryItem = items[0];
     const { custoUnitario, custoComIpi } = calculateUnitCost(primaryItem);
-
     const priceComposition = calculateSuggestedPrice(custoComIpi, {
       aliquota_impostos: Number(settings?.aliquota_impostos) || 6,
       margem_desejada: Number(settings?.margem_desejada) || 40,
@@ -179,10 +221,8 @@ export async function processJob(jobId: number): Promise<void> {
       frete_medio_unidade: Number(settings?.frete_medio_unidade) || 0,
       taxas_fixas: Number(settings?.taxas_fixas) || 0,
     });
-
     const avgPrices = calculateAveragePrices(scrapedData);
 
-    // Collect all found prices
     const precosEncontrados: PriceFound[] = scrapedData
       .filter((d) => d.preco)
       .map((d) => ({
@@ -192,13 +232,9 @@ export async function processJob(jobId: number): Promise<void> {
         data: new Date().toISOString(),
       }));
 
-    // ========== Step 6: CREATE DRAFT ==========
-    const now = new Date().toISOString();
-
-    // Build variations for multiplos_itens
+    // ========== SAVE DRAFT (only output goes to NocoDB) ==========
     let variacoes = generated.variacoes || [];
-    if (job.tipo === 'multiplos_itens' && items.length > 1) {
-      // Override with actual items as variations
+    if (tipo === 'multiplos_itens' && items.length > 1) {
       variacoes = items.map((item) => ({
         nome: extractVariationName(item.descricao, items[0].descricao),
         sku: `${generated.sku_sugerido}-${item.codigo}`,
@@ -208,6 +244,7 @@ export async function processJob(jobId: number): Promise<void> {
       }));
     }
 
+    const now = new Date().toISOString();
     await create<ProductDraft>(TABLES.PRODUCT_DRAFTS, {
       job_id: String(jobId),
       user_id: 'admin',
@@ -249,53 +286,68 @@ export async function processJob(jobId: number): Promise<void> {
       updated_at: now,
     });
 
-    // ========== DONE ==========
-    await setJobStatus(jobId, 'concluido');
-    console.log(`[Pipeline] Job ${jobId}: completed successfully`);
-  } catch (error) {
-    console.error(`[Pipeline] Job ${jobId} failed:`, error);
-    const message = error instanceof Error ? error.message : 'Erro desconhecido';
-    await setJobStatus(jobId, 'erro', {
-      erro_mensagem: message,
+    // Update audit log — only final status + timestamp
+    await update(TABLES.PROCESSING_JOBS, jobId, {
+      status: 'concluido',
+      updated_at: now,
+    }).catch(() => {});
+
+    // Final progress
+    await updateProgress({
+      step: 'concluido',
+      message: 'Produto cadastrado com sucesso',
+      searchResults: {
+        brand: searchResult.brand,
+        urls: searchResult.classified,
+        totalUrls: searchResult.allUrls.length,
+      },
+      scrapingResults: {
+        pagesScraped: scrapedData.length,
+        summaries: scrapingSummaries,
+      },
+      imagesFound: images.length,
+      aiGenerated: true,
+      priceCalculated: true,
+      draftCreated: true,
     });
+
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
+    console.error(`[Pipeline] Job ${jobId} failed:`, message);
+
+    // Update audit log with error
+    await update(TABLES.PROCESSING_JOBS, jobId, {
+      status: 'erro',
+      erro_mensagem: message,
+      updated_at: new Date().toISOString(),
+    }).catch(() => {});
+
+    // Re-throw so BullMQ marks the job as failed
+    throw error;
   }
 }
 
 /**
- * Process all pending jobs for a given NF import.
+ * Inline fallback (no Redis). Used in dev only.
  */
-export async function processAllPendingJobs(nfImportId: string): Promise<void> {
-  const result = await list<ProcessingJob>(TABLES.PROCESSING_JOBS, {
-    where: `(nf_import_id,eq,${nfImportId})~and(status,eq,pendente)`,
-    limit: 100,
-  });
+export async function processJobInline(input: JobInput): Promise<void> {
+  // Create a mock job object with updateProgress
+  const mockProgress: JobProgress = { step: 'pendente' };
+  const mockJob = {
+    data: input,
+    progress: mockProgress,
+    updateProgress: async (p: JobProgress) => { Object.assign(mockProgress, p); },
+  } as unknown as Job<JobInput>;
 
-  console.log(`[Pipeline] Found ${result.list.length} pending jobs for NF ${nfImportId}`);
-
-  // Process sequentially to respect API rate limits
-  for (const job of result.list) {
-    await processJob(job.Id);
-  }
+  await processJobFromQueue(mockJob);
 }
 
-/**
- * Extract variation name by finding the difference between two descriptions.
- * e.g., "CANETA ENERGEL 0.5MM AZUL" vs "CANETA ENERGEL 0.5MM" -> "AZUL"
- */
-function extractVariationName(
-  itemDesc: string,
-  baseDesc: string
-): string {
+function extractVariationName(itemDesc: string, baseDesc: string): string {
   const itemWords = itemDesc.toUpperCase().split(/\s+/);
   const baseWords = baseDesc.toUpperCase().split(/\s+/);
-
   const diff = itemWords.filter((w) => !baseWords.includes(w));
   if (diff.length > 0) {
-    return diff
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-      .join(' ');
+    return diff.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
   }
-
-  // Fallback: use last word
   return itemWords[itemWords.length - 1] || 'Variação';
 }

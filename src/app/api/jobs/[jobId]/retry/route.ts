@@ -13,22 +13,23 @@ export async function POST(
 
   try {
     const job = await get<ProcessingJob>(TABLES.PROCESSING_JOBS, id);
+    const itemIds: number[] = JSON.parse(job.item_ids || '[]');
 
-    if (job.status !== 'erro') {
-      return NextResponse.json(
-        { error: 'Só é possível reprocessar jobs com erro' },
-        { status: 400 }
-      );
-    }
-
-    // Reset status and enqueue via BullMQ
+    // Reset audit log
     await update(TABLES.PROCESSING_JOBS, id, {
       status: 'pendente',
       erro_mensagem: null,
       updated_at: new Date().toISOString(),
     });
 
-    await enqueueJob(id);
+    // Re-enqueue in BullMQ
+    await enqueueJob({
+      jobId: id,
+      nfImportId: job.nf_import_id,
+      tipo: job.tipo,
+      itemIds,
+      grupoId: job.grupo_id,
+    });
 
     return NextResponse.json({ success: true, message: `Job ${jobId} re-enqueued` });
   } catch (error) {

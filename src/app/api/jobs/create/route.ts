@@ -8,8 +8,6 @@ import { enqueueJob } from '@/lib/queue';
 export async function POST(request: NextRequest) {
   try {
     const raw = await request.json();
-
-    // Validate input with Zod
     const parsed = JobRequestSchema.safeParse(raw);
     if (!parsed.success) {
       return NextResponse.json(
@@ -23,7 +21,8 @@ export async function POST(request: NextRequest) {
     const createdJobs: ProcessingJob[] = [];
 
     for (const job of jobs) {
-      const created = await create<ProcessingJob>(TABLES.PROCESSING_JOBS, {
+      // Create slim audit log in NocoDB (not the queue)
+      const auditRow = await create<ProcessingJob>(TABLES.PROCESSING_JOBS, {
         user_id: 'admin',
         nf_import_id: nfImportId,
         tipo: job.tipo,
@@ -33,10 +32,16 @@ export async function POST(request: NextRequest) {
         created_at: now,
         updated_at: now,
       });
-      createdJobs.push(created);
+      createdJobs.push(auditRow);
 
-      // Enqueue for processing (BullMQ/Redis or inline fallback)
-      await enqueueJob(created.Id);
+      // Enqueue in BullMQ (source of truth for processing)
+      await enqueueJob({
+        jobId: auditRow.Id,
+        nfImportId,
+        tipo: job.tipo,
+        itemIds: job.itemIds,
+        grupoId: job.grupoId,
+      });
     }
 
     return NextResponse.json({
