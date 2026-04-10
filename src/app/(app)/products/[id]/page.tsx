@@ -410,16 +410,27 @@ export default function ProductEditPage({
                     <img
                       src={img.url}
                       alt={`Imagem ${i + 1}`}
-                      className={cn(
-                        'h-full w-full object-contain transition-opacity',
-                        !img.selecionada && 'opacity-40'
-                      )}
+                      className="h-full w-full object-contain"
                       loading="lazy"
+                      onLoad={(e) => {
+                        const imgEl = e.currentTarget;
+                        const badge = imgEl.parentElement?.parentElement?.querySelector('[data-res]');
+                        if (badge) badge.textContent = `${imgEl.naturalWidth}×${imgEl.naturalHeight}`;
+                      }}
                     />
                   </div>
                   <div className="absolute left-2 top-2">
                     <Checkbox checked={img.selecionada} disabled={!isEditable} />
                   </div>
+                  <div
+                    data-res
+                    className="absolute left-2 bottom-2 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-mono text-white"
+                  >
+                    ...
+                  </div>
+                  {!img.selecionada && (
+                    <div className="absolute inset-0 rounded-lg border-2 border-dashed border-gray-300 pointer-events-none" />
+                  )}
                   {img.selecionada && i === images.findIndex((im) => im.selecionada) && (
                     <Badge className="absolute right-2 top-2 text-[10px]">
                       Principal
