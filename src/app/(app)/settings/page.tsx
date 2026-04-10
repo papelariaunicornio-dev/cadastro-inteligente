@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { UserSettings } from '@/lib/types';
+import { IntegrationStatus } from '@/components/settings/integration-status';
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Partial<UserSettings>>({});
@@ -28,6 +29,7 @@ export default function SettingsPage() {
     setSaving(true);
     try {
       // Only send editable fields, not read-only ones like Id, CreatedAt
+      // Only send business config fields — tokens are env vars, never in DB
       const {
         nome_loja, segmento, publico_alvo, tom_de_voz, diferenciais,
         regime_tributario, aliquota_impostos, margem_desejada,
@@ -35,7 +37,6 @@ export default function SettingsPage() {
         frete_medio_unidade, taxas_fixas,
         template_titulo, tamanho_max_titulo, instrucoes_descricao,
         prefixo_sku, formato_sku,
-        tiny_token_encrypted, shopify_url, shopify_token_encrypted,
       } = settings;
 
       await fetch('/api/settings', {
@@ -48,7 +49,6 @@ export default function SettingsPage() {
           frete_medio_unidade, taxas_fixas,
           template_titulo, tamanho_max_titulo, instrucoes_descricao,
           prefixo_sku, formato_sku,
-          tiny_token_encrypted, shopify_url, shopify_token_encrypted,
         }),
       });
       toast.success('Configurações salvas');
@@ -200,33 +200,16 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Integrações */}
+      {/* Integrações — tokens via env vars, não no banco */}
       <Card>
         <CardHeader>
           <CardTitle>Integrações</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Tokens de API são configurados via variáveis de ambiente no servidor (Coolify), nunca armazenados no banco de dados.
+          </p>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div>
-            <p className="mb-3 text-sm font-medium">Tiny ERP</p>
-            <div className="space-y-2">
-              <Label>Token API</Label>
-              <Input type="password" value={settings.tiny_token_encrypted || ''} onChange={(e) => update('tiny_token_encrypted', e.target.value)} placeholder="Token da API v2 do Tiny" />
-            </div>
-          </div>
-          <Separator />
-          <div>
-            <p className="mb-3 text-sm font-medium">Shopify</p>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>URL da loja</Label>
-                <Input value={settings.shopify_url || ''} onChange={(e) => update('shopify_url', e.target.value)} placeholder="minha-loja.myshopify.com" />
-              </div>
-              <div className="space-y-2">
-                <Label>Access Token</Label>
-                <Input type="password" value={settings.shopify_token_encrypted || ''} onChange={(e) => update('shopify_token_encrypted', e.target.value)} placeholder="shpat_..." />
-              </div>
-            </div>
-          </div>
+        <CardContent className="space-y-4">
+          <IntegrationStatus />
         </CardContent>
       </Card>
 

@@ -2,15 +2,14 @@ import { NextResponse } from 'next/server';
 import { list, update } from '@/lib/nocodb';
 import { TABLES } from '@/lib/nocodb-tables';
 import type { ProcessingJob } from '@/lib/types';
-import { processJob } from '@/lib/processing/pipeline';
+import { enqueueJob } from '@/lib/queue';
 
 /**
  * Reset jobs stuck in intermediate states (not pendente/concluido/erro)
- * and reprocess them + any pending jobs.
+ * and re-enqueue them + any pending jobs via BullMQ.
  */
 export async function POST() {
   try {
-    // Find stuck jobs (in intermediate states for too long)
     const allJobs = await list<ProcessingJob>(TABLES.PROCESSING_JOBS, {
       where: '(status,neq,concluido)~and(status,neq,erro)',
       limit: 100,
@@ -35,20 +34,15 @@ export async function POST() {
       }
     }
 
-    // Now process all pending jobs (including freshly reset ones)
+    // Re-fetch all pending jobs and enqueue them
     const pendingJobs = await list<ProcessingJob>(TABLES.PROCESSING_JOBS, {
       where: '(status,eq,pendente)',
       limit: 100,
     });
 
-    // Fire-and-forget: process sequentially in background
     const jobIds = pendingJobs.list.map((j) => j.Id);
-    if (jobIds.length > 0) {
-      (async () => {
-        for (const jid of jobIds) {
-          await processJob(jid);
-        }
-      })().catch((err) => console.error('[ResetStuck] Processing error:', err));
+    for (const jid of jobIds) {
+      await enqueueJob(jid);
     }
 
     return NextResponse.json({

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { list, create, update } from '@/lib/nocodb';
 import { TABLES } from '@/lib/nocodb-tables';
 import type { UserSettings } from '@/lib/types';
+import { UserSettingsUpdateSchema } from '@/lib/schemas';
 
 const DEFAULT_SETTINGS: Partial<UserSettings> = {
   user_id: 'admin',
@@ -66,10 +67,20 @@ export async function GET() {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
+
+    // Validate with Zod — business rules in code, not DB
+    const parsed = UserSettingsUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Dados inválidos', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
     const settings = await getOrCreateSettings();
 
     const updated = await update<UserSettings>(TABLES.USER_SETTINGS, settings.Id, {
-      ...body,
+      ...parsed.data,
       updated_at: new Date().toISOString(),
     });
 

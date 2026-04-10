@@ -57,7 +57,6 @@ export async function POST(request: NextRequest) {
         valor_unitario: item.valorUnitario,
         valor_produto: item.valorProduto,
         valor_ipi: item.valorIpi,
-        valor_total: item.valorTotal,
         classificacao: null,
         grupo_id: null,
         selecionado: false,

@@ -28,7 +28,10 @@ type SortKey = 'codigo' | 'ean' | 'descricao' | 'quantidade' | 'unidades_por_ite
 type SortDir = 'asc' | 'desc';
 
 function getSortValue(item: NfItem, key: SortKey): string | number {
-  const val = item[key];
+  if (key === 'valor_total') {
+    return Number(item.valor_produto) + Number(item.valor_ipi);
+  }
+  const val = item[key as keyof NfItem];
   if (val == null) return '';
   return typeof val === 'number' ? val : String(val).toLowerCase();
 }
@@ -221,7 +224,7 @@ export function ItemsTable() {
                   {formatCurrency(Number(item.valor_ipi))}
                 </TableCell>
                 <TableCell className="text-right font-semibold">
-                  {formatCurrency(Number(item.valor_total))}
+                  {formatCurrency(Number(item.valor_produto) + Number(item.valor_ipi))}
                 </TableCell>
               </TableRow>
             );

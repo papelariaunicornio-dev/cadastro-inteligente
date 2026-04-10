@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { get, update } from '@/lib/nocodb';
 import { TABLES } from '@/lib/nocodb-tables';
 import type { ProcessingJob } from '@/lib/types';
-import { processJob } from '@/lib/processing/pipeline';
+import { enqueueJob } from '@/lib/queue';
 
 export async function POST(
   _request: NextRequest,
@@ -21,19 +21,16 @@ export async function POST(
       );
     }
 
-    // Reset status
+    // Reset status and enqueue via BullMQ
     await update(TABLES.PROCESSING_JOBS, id, {
       status: 'pendente',
       erro_mensagem: null,
       updated_at: new Date().toISOString(),
     });
 
-    // Fire-and-forget
-    processJob(id).catch((err) =>
-      console.error(`[Retry] Job ${id} error:`, err)
-    );
+    await enqueueJob(id);
 
-    return NextResponse.json({ success: true, message: `Job ${jobId} reprocessing` });
+    return NextResponse.json({ success: true, message: `Job ${jobId} re-enqueued` });
   } catch (error) {
     console.error('Retry error:', error);
     return NextResponse.json({ error: 'Erro ao reprocessar' }, { status: 500 });

@@ -1,29 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { create } from '@/lib/nocodb';
 import { TABLES } from '@/lib/nocodb-tables';
-import type { ProcessingJob, ItemClassification } from '@/lib/types';
-import { processAllPendingJobs } from '@/lib/processing/pipeline';
-
-interface JobRequest {
-  nfImportId: string;
-  jobs: {
-    tipo: ItemClassification;
-    itemIds: number[];
-    grupoId: string | null;
-  }[];
-}
+import type { ProcessingJob } from '@/lib/types';
+import { JobRequestSchema } from '@/lib/schemas';
+import { enqueueJob } from '@/lib/queue';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as JobRequest;
-    const now = new Date().toISOString();
+    const raw = await request.json();
 
+    // Validate input with Zod
+    const parsed = JobRequestSchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Dados inválidos', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const { nfImportId, jobs } = parsed.data;
+    const now = new Date().toISOString();
     const createdJobs: ProcessingJob[] = [];
 
-    for (const job of body.jobs) {
+    for (const job of jobs) {
       const created = await create<ProcessingJob>(TABLES.PROCESSING_JOBS, {
         user_id: 'admin',
-        nf_import_id: body.nfImportId,
+        nf_import_id: nfImportId,
         tipo: job.tipo,
         status: 'pendente',
         item_ids: JSON.stringify(job.itemIds),
@@ -32,13 +34,10 @@ export async function POST(request: NextRequest) {
         updated_at: now,
       });
       createdJobs.push(created);
-    }
 
-    // Fire-and-forget: start processing in background
-    // Don't await — let the response return immediately
-    processAllPendingJobs(body.nfImportId).catch((err) =>
-      console.error('[Jobs] Background processing error:', err)
-    );
+      // Enqueue for processing (BullMQ/Redis or inline fallback)
+      await enqueueJob(created.Id);
+    }
 
     return NextResponse.json({
       success: true,
