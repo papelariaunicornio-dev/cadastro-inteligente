@@ -16,6 +16,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Security: limit file size (5MB max for NF-e XML)
+    const MAX_XML_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_XML_SIZE) {
+      return NextResponse.json(
+        { error: `Arquivo XML muito grande (${(file.size / 1024 / 1024).toFixed(1)}MB). Máximo: 5MB` },
+        { status: 400 }
+      );
+    }
+
+    // Security: validate file type
+    if (!file.name.endsWith('.xml')) {
+      return NextResponse.json(
+        { error: 'Apenas arquivos .xml são aceitos' },
+        { status: 400 }
+      );
+    }
+
     const xmlString = await file.text();
 
     // Parse XML

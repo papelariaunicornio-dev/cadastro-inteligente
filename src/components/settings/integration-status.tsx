@@ -7,9 +7,6 @@ import { CheckCircle2, XCircle, Loader2, Shield } from 'lucide-react';
 interface IntegrationInfo {
   configured: boolean;
   label: string;
-  envVar?: string;
-  envVars?: string[];
-  storeUrl?: string | null;
 }
 
 interface IntegrationsData {
@@ -59,16 +56,6 @@ export function IntegrationStatus() {
             <Shield className="h-4 w-4 text-muted-foreground" />
             <div>
               <p className="text-sm font-medium">{integration.label}</p>
-              <p className="text-[10px] font-mono text-muted-foreground">
-                {integration.envVars
-                  ? integration.envVars.join(', ')
-                  : integration.envVar}
-              </p>
-              {integration.storeUrl && (
-                <p className="text-[10px] text-muted-foreground">
-                  {integration.storeUrl}
-                </p>
-              )}
             </div>
           </div>
           {integration.configured ? (

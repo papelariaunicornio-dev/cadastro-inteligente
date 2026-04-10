@@ -4,7 +4,10 @@ import type { ParsedNF, ParsedItem } from './types';
 const parser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: '@_',
-  removeNSPrefix: true, // Remove namespace prefixes
+  removeNSPrefix: true,
+  processEntities: false,      // Security: prevent XXE
+  htmlEntities: false,          // Security: don't process HTML entities
+  allowBooleanAttributes: false,
 });
 
 /**

@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { update } from '@/lib/nocodb';
 import { TABLES } from '@/lib/nocodb-tables';
-import type { ItemClassification } from '@/lib/types';
-
-interface SelectionItem {
-  itemId: number;
-  classificacao: ItemClassification;
-  grupoId: string | null;
-}
+import { SelectionRequestSchema } from '@/lib/schemas';
 
 export async function POST(
   request: NextRequest,
@@ -16,10 +10,18 @@ export async function POST(
   const { nfId: _nfId } = await params;
 
   try {
-    const body = (await request.json()) as { selections: SelectionItem[] };
+    const body = await request.json();
 
-    // Update each item with its classification
-    const updates = body.selections.map((sel) =>
+    // Validate with Zod
+    const parsed = SelectionRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Dados inválidos', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const updates = parsed.data.selections.map((sel) =>
       update(TABLES.NF_ITEMS, sel.itemId, {
         classificacao: sel.classificacao,
         grupo_id: sel.grupoId,
@@ -29,9 +31,9 @@ export async function POST(
 
     await Promise.all(updates);
 
-    return NextResponse.json({ success: true, count: body.selections.length });
+    return NextResponse.json({ success: true, count: parsed.data.selections.length });
   } catch (error) {
-    console.error('Selection error:', error);
+    console.error('Selection error:', error instanceof Error ? error.message : error);
     return NextResponse.json(
       { error: 'Erro ao salvar seleções' },
       { status: 500 }
