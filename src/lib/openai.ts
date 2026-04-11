@@ -38,7 +38,7 @@ export async function generateJSON<T>(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-5.4-mini',
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: systemPrompt },
