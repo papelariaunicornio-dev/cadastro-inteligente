@@ -223,6 +223,7 @@ export default function ProductEditPage({
         {
           url,
           source: 'upload',
+          origem: 'scrape' as const,
           selecionada: true,
           ordem: prev.length,
         },
