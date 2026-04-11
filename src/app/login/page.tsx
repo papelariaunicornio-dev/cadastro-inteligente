@@ -37,10 +37,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-      <Card className="w-full max-w-sm shadow-xl border-0 shadow-indigo-100">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#33A9AC]/10 via-white to-[#343779]/10">
+      <Card className="w-full max-w-sm shadow-xl border-0 shadow-[#343779]/10">
         <CardHeader className="text-center pb-2">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 shadow-lg shadow-indigo-200">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#343779] shadow-lg shadow-[#343779]/30">
             <Sparkles className="h-7 w-7 text-white" />
           </div>
           <h1 className="text-xl font-bold tracking-tight text-gray-900">
@@ -80,7 +80,7 @@ export default function LoginPage() {
             )}
             <Button
               type="submit"
-              className="w-full h-11 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-md shadow-indigo-200"
+              className="w-full h-11 bg-[#33A9AC] hover:bg-[#2a8e90] shadow-md shadow-[#33A9AC]/20"
               disabled={loading}
             >
               {loading ? (

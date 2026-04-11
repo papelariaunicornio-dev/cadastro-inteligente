@@ -175,7 +175,7 @@ export default function SearchPage() {
                 onClick={handleSubmit}
                 disabled={submitting}
                 size="lg"
-                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+                className="bg-[#33A9AC] hover:bg-[#2a8e90]"
               >
                 {submitting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

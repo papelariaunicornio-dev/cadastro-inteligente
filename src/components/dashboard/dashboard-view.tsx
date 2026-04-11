@@ -79,7 +79,7 @@ export function DashboardView({ initialCounts, initialNfs }: DashboardViewProps)
           </p>
         </div>
         <Link href="/import">
-          <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700">
+          <Button className="bg-[#33A9AC] hover:bg-[#2a8e90]">
             <Upload className="mr-2 h-4 w-4" />
             Importar XML
           </Button>
@@ -87,31 +87,31 @@ export function DashboardView({ initialCounts, initialNfs }: DashboardViewProps)
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border-l-4 border-l-amber-400">
+        <Card className="border-l-4 border-l-[#FFA646]">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Em processamento</CardTitle>
-            <Clock className="h-5 w-5 text-amber-500" />
+            <Clock className="h-5 w-5 text-[#FFA646]" />
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{counts.processando}</p>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-blue-400">
+        <Card className="border-l-4 border-l-[#33A9AC]">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Aguardando aprovação</CardTitle>
-            <Package className="h-5 w-5 text-blue-500" />
+            <Package className="h-5 w-5 text-[#33A9AC]" />
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{counts.aguardando}</p>
             {counts.aguardando > 0 && (
-              <Link href="/products" className="text-xs text-blue-600 hover:underline">Ver produtos →</Link>
+              <Link href="/products" className="text-xs text-[#33A9AC] hover:underline">Ver produtos →</Link>
             )}
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-green-400">
+        <Card className="border-l-4 border-l-[#982062]">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Aprovados / Enviados</CardTitle>
-            <CheckCircle className="h-5 w-5 text-green-500" />
+            <CheckCircle className="h-5 w-5 text-[#982062]" />
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{counts.aprovados}</p>
@@ -125,7 +125,7 @@ export function DashboardView({ initialCounts, initialNfs }: DashboardViewProps)
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">OpenAI Tokens</CardTitle>
-              <Cpu className="h-5 w-5 text-indigo-500" />
+              <Cpu className="h-5 w-5 text-[#343779]" />
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">{costs.totalTokens.toLocaleString('pt-BR')}</p>
@@ -138,7 +138,7 @@ export function DashboardView({ initialCounts, initialNfs }: DashboardViewProps)
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Firecrawl Créditos</CardTitle>
-              <Flame className="h-5 w-5 text-orange-500" />
+              <Flame className="h-5 w-5 text-[#F86041]" />
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">{costs.totalCredits.toLocaleString('pt-BR')}</p>

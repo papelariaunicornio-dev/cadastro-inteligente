@@ -49,39 +49,48 @@
 }
 
 :root {
-  /* Modern indigo/violet palette */
-  --background: oklch(0.98 0.005 270);
-  --foreground: oklch(0.18 0.02 270);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.02 270);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.02 270);
-  --primary: oklch(0.50 0.20 270);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.95 0.02 270);
-  --secondary-foreground: oklch(0.30 0.05 270);
-  --muted: oklch(0.95 0.01 270);
-  --muted-foreground: oklch(0.50 0.02 270);
-  --accent: oklch(0.93 0.03 270);
-  --accent-foreground: oklch(0.30 0.05 270);
-  --destructive: oklch(0.55 0.22 25);
-  --border: oklch(0.91 0.01 270);
-  --input: oklch(0.91 0.01 270);
-  --ring: oklch(0.50 0.20 270);
-  --chart-1: oklch(0.55 0.20 270);
-  --chart-2: oklch(0.60 0.18 200);
-  --chart-3: oklch(0.65 0.15 150);
-  --chart-4: oklch(0.70 0.15 50);
-  --chart-5: oklch(0.55 0.18 320);
+  /*
+   * Paleta Playroom
+   * #33A9AC — teal (primary)
+   * #FFA646 — laranja (accent)
+   * #F86041 — coral (destructive)
+   * #982062 — magenta (secondary)
+   * #343779 — navy (sidebar)
+   */
+  --background: #f8f9fc;
+  --foreground: #1a1c2e;
+  --card: #ffffff;
+  --card-foreground: #1a1c2e;
+  --popover: #ffffff;
+  --popover-foreground: #1a1c2e;
+  --primary: #33A9AC;
+  --primary-foreground: #ffffff;
+  --secondary: #982062;
+  --secondary-foreground: #ffffff;
+  --muted: #f0f1f5;
+  --muted-foreground: #6b6e85;
+  --accent: #FFA646;
+  --accent-foreground: #1a1c2e;
+  --destructive: #F86041;
+  --border: #e2e4ed;
+  --input: #e2e4ed;
+  --ring: #33A9AC;
+  --chart-1: #33A9AC;
+  --chart-2: #FFA646;
+  --chart-3: #F86041;
+  --chart-4: #982062;
+  --chart-5: #343779;
   --radius: 0.75rem;
-  --sidebar: oklch(0.22 0.04 270);
-  --sidebar-foreground: oklch(0.92 0.01 270);
-  --sidebar-primary: oklch(0.70 0.18 270);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.28 0.04 270);
-  --sidebar-accent-foreground: oklch(0.92 0.01 270);
-  --sidebar-border: oklch(0.30 0.03 270);
-  --sidebar-ring: oklch(0.50 0.20 270);
+
+  /* Sidebar — navy dark */
+  --sidebar: #343779;
+  --sidebar-foreground: #e8e9f0;
+  --sidebar-primary: #33A9AC;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #3f4290;
+  --sidebar-accent-foreground: #f0f1f5;
+  --sidebar-border: #3f4290;
+  --sidebar-ring: #33A9AC;
 }
 
 @layer base {
