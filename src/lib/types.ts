@@ -182,6 +182,8 @@ export interface ProductDraft {
   titulo_seo: string | null;
   descricao_seo: string | null;
   palavras_chave: string | null;
+  openai_tokens: number | null;
+  firecrawl_credits: number | null;
   enviado_at: string | null;
   created_at: string;
   updated_at: string;

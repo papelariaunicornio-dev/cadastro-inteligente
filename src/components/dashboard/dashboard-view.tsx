@@ -20,6 +20,8 @@ import {
   CheckCircle,
   FileText,
   Loader2,
+  Cpu,
+  Flame,
 } from 'lucide-react';
 import type { NfImport } from '@/lib/types';
 
@@ -27,6 +29,14 @@ interface Counts {
   processando: number;
   aguardando: number;
   aprovados: number;
+}
+
+interface CostsData {
+  totalTokens: number;
+  totalCredits: number;
+  productCount: number;
+  avgTokensPerProduct: number;
+  avgCreditsPerProduct: number;
 }
 
 interface DashboardViewProps {
@@ -37,15 +47,18 @@ interface DashboardViewProps {
 export function DashboardView({ initialCounts, initialNfs }: DashboardViewProps) {
   const [counts, setCounts] = useState(initialCounts);
   const [recentNfs, setRecentNfs] = useState(initialNfs);
+  const [costs, setCosts] = useState<CostsData | null>(null);
 
   // Poll for updates (counts change as jobs process)
   const refresh = useCallback(async () => {
     try {
-      const [countsRes, nfsRes] = await Promise.all([
+      const [countsRes, nfsRes, costsRes] = await Promise.all([
         fetch('/api/products/counts'),
         fetch('/api/nf/recent'),
+        fetch('/api/products/costs'),
       ]);
       setCounts(await countsRes.json());
+      setCosts(await costsRes.json());
       const nfsData = await nfsRes.json();
       setRecentNfs(nfsData.list || []);
     } catch { /* ignore poll errors */ }
@@ -105,6 +118,38 @@ export function DashboardView({ initialCounts, initialNfs }: DashboardViewProps)
           </CardContent>
         </Card>
       </div>
+
+      {/* API Costs */}
+      {costs && costs.productCount > 0 && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">OpenAI Tokens</CardTitle>
+              <Cpu className="h-5 w-5 text-indigo-500" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{costs.totalTokens.toLocaleString('pt-BR')}</p>
+              <p className="text-xs text-muted-foreground">
+                Média: {costs.avgTokensPerProduct.toLocaleString('pt-BR')} tokens/produto
+                ({costs.productCount} produtos)
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Firecrawl Créditos</CardTitle>
+              <Flame className="h-5 w-5 text-orange-500" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{costs.totalCredits.toLocaleString('pt-BR')}</p>
+              <p className="text-xs text-muted-foreground">
+                Média: {costs.avgCreditsPerProduct} créditos/produto
+                ({costs.productCount} produtos)
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <Card>
         <CardHeader>

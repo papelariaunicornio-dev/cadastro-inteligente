@@ -19,6 +19,7 @@ export interface SearchResult {
   allUrls: string[];
   classified: UrlClassification;
   rawResults: FirecrawlSearchResult[];
+  firecrawlCredits: number; // Number of search API calls made
 }
 
 /**
@@ -84,6 +85,7 @@ export async function searchProduct(ctx: SearchContext): Promise<SearchResult> {
     allUrls,
     classified,
     rawResults: allResults,
+    firecrawlCredits: queries.length, // Each search = 1 credit
   };
 }
 

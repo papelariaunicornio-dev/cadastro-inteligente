@@ -2,7 +2,7 @@
  * AI content generation step: build prompt and call OpenAI to generate product draft.
  */
 
-import { generateJSON } from '@/lib/openai';
+import { generateJSON, type GenerateResult } from '@/lib/openai';
 import type { NfItem, ScrapedData, UserSettings, ItemClassification } from '@/lib/types';
 
 interface GeneratedProduct {
@@ -149,5 +149,5 @@ export async function generateProductDraft(
   "variacoes": [{"nome": "string", "atributos": {"chave": "valor"}}]
 }`;
 
-  return generateJSON<GeneratedProduct>(SYSTEM_PROMPT, userPrompt);
+  return generateJSON<GeneratedProduct>(SYSTEM_PROMPT, userPrompt) as Promise<GenerateResult<GeneratedProduct>>;
 }

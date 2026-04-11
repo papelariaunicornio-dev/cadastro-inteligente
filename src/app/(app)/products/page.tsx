@@ -145,6 +145,7 @@ export default function ProductsPage() {
                 <TableHead>Marca</TableHead>
                 <TableHead className="text-center">Variações</TableHead>
                 <TableHead className="text-right">Preço Sugerido</TableHead>
+                <TableHead className="text-center">Custos API</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-20">Ações</TableHead>
               </TableRow>
@@ -193,6 +194,17 @@ export default function ProductsPage() {
                       {product.preco_sugerido
                         ? `R$ ${Number(product.preco_sugerido).toFixed(2)}`
                         : '—'}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex flex-col items-center gap-0.5 text-[10px] text-muted-foreground">
+                        {product.openai_tokens ? (
+                          <span title="Tokens OpenAI">🤖 {product.openai_tokens.toLocaleString('pt-BR')} tk</span>
+                        ) : null}
+                        {product.firecrawl_credits ? (
+                          <span title="Créditos Firecrawl">🔥 {product.firecrawl_credits} cr</span>
+                        ) : null}
+                        {!product.openai_tokens && !product.firecrawl_credits && '—'}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant={badge.variant}>{badge.label}</Badge>

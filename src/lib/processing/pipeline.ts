@@ -202,7 +202,7 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
       imagesFound: images.length,
     });
 
-    const generated = await withTimeout(
+    const generateResult = await withTimeout(
       generateProductDraft({
         items,
         tipo: tipo as 'sem_variacao' | 'com_variacao' | 'multiplos_itens',
@@ -213,6 +213,8 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
       STEP_TIMEOUT_MS,
       'generate'
     );
+    const generated = generateResult.data;
+    const openaiUsage = generateResult.usage;
 
     // ========== PRICE ==========
     const primaryItem = items[0];
@@ -262,6 +264,8 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
       titulo_seo: generated.titulo_seo,
       descricao_seo: generated.descricao_seo,
       palavras_chave: generated.palavras_chave,
+      openai_tokens: openaiUsage.total_tokens,
+      firecrawl_credits: searchResult.firecrawlCredits + scrapedData.length, // searches + scrapes
       ean: primaryItem.ean,
       ncm: primaryItem.ncm,
       peso: generated.peso_estimado,

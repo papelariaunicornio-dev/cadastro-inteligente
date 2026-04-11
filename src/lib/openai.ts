@@ -15,15 +15,24 @@ function getClient(): OpenAI {
   return client;
 }
 
+export interface GenerateResult<T> {
+  data: T;
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
 /**
  * Generate a JSON response from a structured prompt.
- * Retries up to `maxRetries` times on parse failures.
+ * Returns both the parsed data and token usage.
  */
 export async function generateJSON<T>(
   systemPrompt: string,
   userPrompt: string,
   maxRetries = 2
-): Promise<T> {
+): Promise<GenerateResult<T>> {
   const openai = getClient();
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -42,7 +51,16 @@ export async function generateJSON<T>(
       const content = completion.choices[0]?.message?.content;
       if (!content) throw new Error('OpenAI returned empty content');
 
-      return JSON.parse(content) as T;
+      const usage = completion.usage;
+
+      return {
+        data: JSON.parse(content) as T,
+        usage: {
+          prompt_tokens: usage?.prompt_tokens || 0,
+          completion_tokens: usage?.completion_tokens || 0,
+          total_tokens: usage?.total_tokens || 0,
+        },
+      };
     } catch (error) {
       if (attempt === maxRetries) throw error;
       console.warn(`OpenAI attempt ${attempt + 1} failed, retrying...`, error);
