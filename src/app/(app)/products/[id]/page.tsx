@@ -78,6 +78,9 @@ export default function ProductEditPage({
   const [variacoes, setVariacoes] = useState<ProductVariation[]>([]);
   const [tipoVariacao, setTipoVariacao] = useState('');
 
+  // Tiny categories
+  const [tinyCategories, setTinyCategories] = useState<{ id: string; nome: string; path: string }[]>([]);
+
   // Send destinations
   const [sendTiny, setSendTiny] = useState(false);
   const [sendShopify, setSendShopify] = useState(false);
@@ -123,6 +126,14 @@ export default function ProductEditPage({
   }, [id]);
 
   // ==========================================
+  // Load Tiny categories
+  useEffect(() => {
+    fetch('/api/integrations/tiny/categories')
+      .then((r) => r.json())
+      .then((data) => setTinyCategories(data.categories || []))
+      .catch(() => {});
+  }, []);
+
   // Live validation (debounced)
   // ==========================================
   useEffect(() => {
@@ -421,7 +432,28 @@ export default function ProductEditPage({
             </div>
             <div className="space-y-2">
               <Label>Categoria</Label>
-              <Input value={categoria} onChange={(e) => setCategoria(e.target.value)} disabled={!isEditable} />
+              {tinyCategories.length > 0 ? (
+                <>
+                  <select
+                    value={categoria}
+                    onChange={(e) => setCategoria(e.target.value)}
+                    disabled={!isEditable}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="">Selecione uma categoria</option>
+                    {tinyCategories.map((cat) => (
+                      <option key={cat.id} value={cat.path}>
+                        {cat.path}
+                      </option>
+                    ))}
+                  </select>
+                  {categoria && !tinyCategories.some((c) => c.path === categoria) && (
+                    <p className="text-[10px] text-amber-600">Categoria da IA: &quot;{categoria}&quot; (selecione uma do Tiny)</p>
+                  )}
+                </>
+              ) : (
+                <Input value={categoria} onChange={(e) => setCategoria(e.target.value)} disabled={!isEditable} />
+              )}
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
