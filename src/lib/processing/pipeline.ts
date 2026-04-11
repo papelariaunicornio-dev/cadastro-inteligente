@@ -307,6 +307,9 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
       categoria: generated.categoria,
       tags: JSON.stringify(generated.tags),
       sku: generated.sku_sugerido,
+      fornecedor_nome: nfImport?.fornecedor_fantasia || nfImport?.fornecedor_nome || null,
+      fornecedor_cnpj: nfImport?.fornecedor_cnpj || null,
+      codigo_fornecedor: primaryItem.codigo || null, // cProd da NF
       titulo_seo: generated.titulo_seo,
       descricao_seo: generated.descricao_seo,
       palavras_chave: generated.palavras_chave,

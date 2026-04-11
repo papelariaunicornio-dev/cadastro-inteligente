@@ -182,6 +182,9 @@ export interface ProductDraft {
   titulo_seo: string | null;
   descricao_seo: string | null;
   palavras_chave: string | null;
+  fornecedor_nome: string | null;
+  fornecedor_cnpj: string | null;
+  codigo_fornecedor: string | null; // cProd da NF — codigo do produto no fornecedor
   openai_tokens: number | null;
   firecrawl_credits: number | null;
   enviado_at: string | null;

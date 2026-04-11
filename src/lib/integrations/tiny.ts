@@ -1,6 +1,15 @@
 /**
  * Tiny ERP API v2 integration.
- * Docs: https://tiny.com.br/api-docs
+ * Docs: https://tiny.com.br/api-docs/api2-produtos-incluir
+ *
+ * Campos mapeados:
+ * - codigo → SKU
+ * - codigo_pelo_fornecedor → cProd da NF (código do produto no fornecedor)
+ * - nome → título
+ * - descricao_complementar → descrição curta
+ * - marca, ncm, gtin, peso
+ * - seo → titulo_seo, palavras_chave, descricao_seo, slug
+ * - variacoes → com grade e gtin
  */
 
 import type { ProductDraft, ProductVariation } from '@/lib/types';
@@ -15,7 +24,7 @@ function getToken(): string {
 
 interface TinyResponse {
   retorno: {
-    status_processamento: string; // "1" | "2" | "3"
+    status_processamento: string;
     status: string;
     registros?: {
       registro: {
@@ -41,7 +50,14 @@ export async function createTinyProduct(
     ? JSON.parse(draft.variacoes)
     : [];
 
-  // Build Tiny product XML format (Tiny v2 uses form-encoded with XML)
+  // SEO fields
+  const extra = draft as ProductDraft & {
+    titulo_seo?: string;
+    descricao_seo?: string;
+    palavras_chave?: string;
+  };
+
+  // Build product payload
   const produto: Record<string, unknown> = {
     sequencia: 1,
     codigo: draft.sku || '',
@@ -54,17 +70,53 @@ export async function createTinyProduct(
     descricao_complementar: draft.descricao_curta || '',
     peso_bruto: draft.peso || 0,
     peso_liquido: draft.peso || 0,
-    situacao: 'A', // Ativo
-    tipo: 'P', // Produto
+    situacao: 'A',
+    tipo: 'P',
+
+    // Supplier data (from NF)
+    codigo_pelo_fornecedor: draft.codigo_fornecedor || '',
+
+    // Packaging dimensions
+    altura_embalagem: draft.altura || 0,
+    largura_embalagem: draft.largura || 0,
+    comprimento_embalagem: draft.profundidade || 0,
+
+    // Category
+    categoria: draft.categoria || '',
   };
 
-  // Add variations if applicable
+  // SEO object
+  if (extra.titulo_seo || extra.palavras_chave || extra.descricao_seo) {
+    produto.seo = {
+      title: extra.titulo_seo || draft.titulo,
+      keywords: extra.palavras_chave || '',
+      description: extra.descricao_seo || draft.descricao_curta || '',
+      slug: (extra.titulo_seo || draft.titulo)
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, ''),
+    };
+  }
+
+  // Tags
+  if (draft.tags) {
+    try {
+      const tags: string[] = JSON.parse(draft.tags);
+      if (tags.length > 0) {
+        produto.tags = tags.map((tag) => ({ tag }));
+      }
+    } catch { /* ignore */ }
+  }
+
+  // Variations
   if (variacoes.length > 0) {
     produto.variacoes = variacoes.map((v, i) => ({
       variacao: {
         codigo: v.sku || `${draft.sku}-${i + 1}`,
         grade: {
-          [draft.tipo_variacao || 'Variação']: v.nome,
+          [draft.tipo_variacao || 'Variacao']: v.nome,
         },
         gtin: v.ean || '',
         preco: v.preco || draft.preco_final || 0,
@@ -99,7 +151,7 @@ export async function createTinyProduct(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro de conexão',
+      error: error instanceof Error ? error.message : 'Erro de conexao',
     };
   }
 }
