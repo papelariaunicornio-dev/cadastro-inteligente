@@ -63,7 +63,7 @@ async function loadSettings(): Promise<Partial<UserSettings> | null> {
  * NocoDB only gets the final product_draft + audit log update.
  */
 export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
-  const { jobId, nfImportId, tipo, itemIds } = job.data;
+  const { jobId, nfImportId, tipo, itemIds, grupoId } = job.data;
 
   const updateProgress = async (progress: JobProgress) => {
     await job.updateProgress(progress);
