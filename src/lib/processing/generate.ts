@@ -56,7 +56,7 @@ REGRAS:
 
 export async function generateProductDraft(
   ctx: GenerateContext
-): Promise<GeneratedProduct> {
+): Promise<GenerateResult<GeneratedProduct>> {
   const { items, tipo, brand, scrapedData, settings } = ctx;
   const primaryItem = items[0];
 
@@ -149,5 +149,5 @@ export async function generateProductDraft(
   "variacoes": [{"nome": "string", "atributos": {"chave": "valor"}}]
 }`;
 
-  return generateJSON<GeneratedProduct>(SYSTEM_PROMPT, userPrompt) as Promise<GenerateResult<GeneratedProduct>>;
+  return generateJSON<GeneratedProduct>(SYSTEM_PROMPT, userPrompt);
 }
