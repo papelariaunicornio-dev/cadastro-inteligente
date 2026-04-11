@@ -394,12 +394,12 @@ export default function ProductEditPage({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={() => router.push('/products')}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+        <Button variant="ghost" size="sm" onClick={() => router.push('/products')} className="self-start">
           <ArrowLeft className="mr-1 h-4 w-4" /> Voltar
         </Button>
-        <h1 className="flex-1 text-xl font-bold truncate">{product.titulo}</h1>
-        <Badge variant={product.status === 'aguardando' ? 'secondary' : 'default'}>
+        <h1 className="flex-1 text-lg font-bold truncate sm:text-xl">{product.titulo}</h1>
+        <Badge variant={product.status === 'aguardando' ? 'secondary' : 'default'} className="self-start sm:self-auto">
           {product.status}
         </Badge>
       </div>
@@ -426,7 +426,7 @@ export default function ProductEditPage({
             <Label>Descrição completa (HTML)</Label>
             <Textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} disabled={!isEditable} rows={8} className="font-mono text-sm" />
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label>Marca</Label>
               <Input value={marca} onChange={(e) => setMarca(e.target.value)} disabled={!isEditable} />
@@ -467,7 +467,7 @@ export default function ProductEditPage({
               )}
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
             <div className="space-y-2">
               <Label>EAN</Label>
               <Input value={product.ean || ''} disabled className="bg-gray-50" />
@@ -532,10 +532,10 @@ export default function ProductEditPage({
       {/* Section 2: Images */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle>Imagens ({selectedImagesCount}/{images.length} selecionadas)</CardTitle>
             {isEditable && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button variant="outline" size="sm" onClick={selectAllImages}>
                   <ImagePlus className="mr-1 h-3 w-3" />
                   Selecionar todas
@@ -702,8 +702,8 @@ export default function ProductEditPage({
               )}
             </p>
           ) : (
-            <div className="rounded-md border">
-              <table className="w-full text-sm">
+            <div className="rounded-md border overflow-x-auto">
+              <table className="w-full min-w-[500px] text-sm">
                 <thead>
                   <tr className="border-b bg-gray-50">
                     <th className="p-2 text-left font-medium">Nome</th>
@@ -797,7 +797,7 @@ export default function ProductEditPage({
           <CardTitle>Preços</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
             <button
               className="rounded-lg border-2 border-blue-200 bg-blue-50 p-4 text-left hover:border-blue-400 transition-colors"
               onClick={() => setPrecoFinal(product.preco_sugerido?.toString() || '')}
@@ -824,10 +824,10 @@ export default function ProductEditPage({
             </button>
           </div>
 
-          <div className="flex items-end gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
             <div className="flex-1 space-y-2">
               <Label className="text-lg font-semibold">Preço final</Label>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-lg">R$</span>
                 <Input
                   type="number"
@@ -873,7 +873,7 @@ export default function ProductEditPage({
           {composicao && (
             <div>
               <p className="mb-2 text-sm font-medium text-muted-foreground">Composição do preço sugerido</p>
-              <div className="grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
+              <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 md:grid-cols-4">
                 <div>
                   <span className="text-muted-foreground">Custo c/ IPI:</span>
                   <span className="ml-1 font-medium">{formatCurrency(composicao.custo_com_ipi)}</span>
@@ -942,7 +942,7 @@ export default function ProductEditPage({
           {/* Send destinations */}
           <div>
             <p className="text-sm font-medium mb-2">Enviar para:</p>
-            <div className="flex gap-6">
+            <div className="flex flex-wrap gap-4 sm:gap-6">
               <label className="flex items-center gap-2 cursor-pointer">
                 <Checkbox checked={sendTiny} onCheckedChange={(v) => setSendTiny(!!v)} />
                 <span className="text-sm">Tiny ERP</span>
@@ -960,17 +960,17 @@ export default function ProductEditPage({
 
           <Separator />
 
-          <div className="flex items-center justify-between">
-            <Button variant="destructive" size="sm" onClick={handleDiscard}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <Button variant="destructive" size="sm" onClick={handleDiscard} className="w-full sm:w-auto">
               <Trash2 className="mr-2 h-4 w-4" />
               Descartar
             </Button>
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={handleSave} disabled={saving}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+              <Button variant="outline" onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Salvar rascunho
               </Button>
-              <Button onClick={handleApprove} disabled={saving || (!sendTiny && !sendShopify && !sendNuvemshop)}>
+              <Button onClick={handleApprove} disabled={saving || (!sendTiny && !sendShopify && !sendNuvemshop)} className="w-full sm:w-auto">
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
                 Aprovar e enviar
               </Button>

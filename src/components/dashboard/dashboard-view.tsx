@@ -71,22 +71,22 @@ export function DashboardView({ initialCounts, initialNfs }: DashboardViewProps)
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Dashboard</h1>
           <p className="text-sm text-muted-foreground">
             Visão geral do cadastro de produtos
           </p>
         </div>
         <Link href="/import">
-          <Button className="bg-[#33A9AC] hover:bg-[#2a8e90]">
+          <Button className="w-full bg-[#33A9AC] hover:bg-[#2a8e90] sm:w-auto">
             <Upload className="mr-2 h-4 w-4" />
             Importar XML
           </Button>
         </Link>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
         <Card className="border-l-4 border-l-[#FFA646]">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Em processamento</CardTitle>
@@ -121,7 +121,7 @@ export function DashboardView({ initialCounts, initialNfs }: DashboardViewProps)
 
       {/* API Costs */}
       {costs && costs.productCount > 0 && (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">OpenAI Tokens</CardTitle>
@@ -165,6 +165,7 @@ export function DashboardView({ initialCounts, initialNfs }: DashboardViewProps)
               </Link>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -193,6 +194,7 @@ export function DashboardView({ initialCounts, initialNfs }: DashboardViewProps)
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -92,8 +92,8 @@ export function ItemsTable() {
   const headerClass = 'cursor-pointer select-none hover:text-foreground transition-colors';
 
   return (
-    <div className="rounded-md border">
-      <Table>
+    <div className="rounded-md border overflow-x-auto">
+      <Table className="min-w-[800px]">
         <TableHeader>
           <TableRow>
             <TableHead className="w-12"></TableHead>

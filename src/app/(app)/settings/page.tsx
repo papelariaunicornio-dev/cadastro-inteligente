@@ -72,8 +72,8 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Configurações</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Configurações</h1>
         <Button onClick={handleSave} disabled={saving}>
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
           Salvar
@@ -86,7 +86,7 @@ export default function SettingsPage() {
           <CardTitle>Empresa</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Nome da loja</Label>
               <Input value={settings.nome_loja || ''} onChange={(e) => update('nome_loja', e.target.value)} />
@@ -117,7 +117,7 @@ export default function SettingsPage() {
           <CardTitle>Regras de Preço</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
             <div className="space-y-2">
               <Label>Regime tributário</Label>
               <Input value={settings.regime_tributario || 'simples_nacional'} onChange={(e) => update('regime_tributario', e.target.value)} />
@@ -133,7 +133,7 @@ export default function SettingsPage() {
           </div>
           <Separator />
           <p className="text-sm font-medium text-muted-foreground">Comissões por canal</p>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label>E-commerce próprio (%)</Label>
               <Input type="number" step="0.1" value={settings.comissao_ecommerce ?? 0} onChange={(e) => update('comissao_ecommerce', parseFloat(e.target.value))} />
@@ -147,7 +147,7 @@ export default function SettingsPage() {
               <Input type="number" step="0.1" value={settings.comissao_shopee ?? 20} onChange={(e) => update('comissao_shopee', parseFloat(e.target.value))} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Frete médio/unidade (R$)</Label>
               <Input type="number" step="0.01" value={settings.frete_medio_unidade ?? 0} onChange={(e) => update('frete_medio_unidade', parseFloat(e.target.value))} />
@@ -187,7 +187,7 @@ export default function SettingsPage() {
           <CardTitle>Regras de SKU</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Prefixo do SKU</Label>
               <Input value={settings.prefixo_sku || ''} onChange={(e) => update('prefixo_sku', e.target.value)} placeholder="PU" />

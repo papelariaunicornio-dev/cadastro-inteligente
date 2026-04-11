@@ -74,10 +74,10 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Produtos</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Produtos</h1>
         <Link href="/import">
-          <Button variant="outline">
+          <Button variant="outline" className="w-full sm:w-auto">
             <Upload className="mr-2 h-4 w-4" />
             Nova importação
           </Button>
@@ -88,7 +88,7 @@ export default function ProductsPage() {
       <ProcessingJobs />
 
       {/* Status cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -136,8 +136,8 @@ export default function ProductsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="rounded-md border bg-white">
-          <Table>
+        <div className="rounded-md border bg-white overflow-x-auto">
+          <Table className="min-w-[700px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-16">Img</TableHead>

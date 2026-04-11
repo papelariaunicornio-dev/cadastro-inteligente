@@ -190,61 +190,65 @@ function JobCard({
     })}>
       {/* Header — always visible */}
       <div
-        className="flex items-center gap-3 p-4 cursor-pointer"
+        className="flex flex-col gap-2 p-4 cursor-pointer sm:flex-row sm:items-center sm:gap-3"
         onClick={() => setExpanded((v) => !v)}
       >
-        {expanded ? (
-          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-        )}
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          {expanded ? (
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          )}
 
-        <Icon className={cn('h-5 w-5 shrink-0', config.color, isActive && 'animate-pulse')} />
+          <Icon className={cn('h-5 w-5 shrink-0', config.color, isActive && 'animate-pulse')} />
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium text-sm">{config.label}</span>
-            <Badge variant={config.badgeVariant} className="text-[10px]">
-              {TIPO_LABEL[job.tipo] || job.tipo}
-            </Badge>
-            {job.nf && (
-              <span className="text-xs text-muted-foreground">
-                NF {job.nf.numero_nf} · {job.nf.fornecedor}
-              </span>
-            )}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-medium text-sm">{config.label}</span>
+              <Badge variant={config.badgeVariant} className="text-[10px]">
+                {TIPO_LABEL[job.tipo] || job.tipo}
+              </Badge>
+              {job.nf && (
+                <span className="text-xs text-muted-foreground">
+                  NF {job.nf.numero_nf} · {job.nf.fornecedor}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground truncate mt-0.5">
+              {job.items.length > 0
+                ? job.items.slice(0, 2).join(' | ') + (job.items.length > 2 ? ` +${job.items.length - 2}` : '')
+                : `${job.item_count} item(s)`}
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground truncate mt-0.5">
-            {job.items.length > 0
-              ? job.items.slice(0, 2).join(' | ') + (job.items.length > 2 ? ` +${job.items.length - 2}` : '')
-              : `${job.item_count} item(s)`}
-          </p>
         </div>
 
-        <StepProgress currentStatus={job.status} />
+        <div className="flex items-center gap-2 pl-7 sm:pl-0">
+          <StepProgress currentStatus={job.status} />
 
-        <div className="text-right shrink-0 ml-2">
-          <p className="text-xs font-mono text-muted-foreground">
-            {formatDuration(job.duration_seconds)}
-          </p>
-          <p className="text-[10px] text-muted-foreground">
-            {formatTime(job.updated_at)}
-          </p>
+          <div className="text-right shrink-0 ml-2">
+            <p className="text-xs font-mono text-muted-foreground">
+              {formatDuration(job.duration_seconds)}
+            </p>
+            <p className="text-[10px] text-muted-foreground">
+              {formatTime(job.updated_at)}
+            </p>
+          </div>
+
+          {job.status === 'erro' && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 ml-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRetry(job.id);
+              }}
+            >
+              <RotateCcw className="mr-1 h-3 w-3" />
+              Retry
+            </Button>
+          )}
         </div>
-
-        {job.status === 'erro' && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="shrink-0 ml-2"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRetry(job.id);
-            }}
-          >
-            <RotateCcw className="mr-1 h-3 w-3" />
-            Retry
-          </Button>
-        )}
       </div>
 
       {/* Expanded details */}
@@ -441,9 +445,9 @@ export default function ProcessingPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Processamento</h1>
+          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Processamento</h1>
           <p className="text-sm text-muted-foreground">
             Acompanhe o status detalhado de cada job
           </p>
@@ -452,6 +456,7 @@ export default function ProcessingPage() {
           variant="outline"
           onClick={handleResetStuck}
           disabled={resetting}
+          className="w-full sm:w-auto"
         >
           {resetting ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
