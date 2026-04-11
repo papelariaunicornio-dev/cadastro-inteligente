@@ -480,6 +480,15 @@ export default function ProductEditPage({
               <Label>Peso (kg)</Label>
               <Input value={product.peso?.toString() || ''} disabled className="bg-gray-50" />
             </div>
+            <div className="space-y-2">
+              <Label>Estoque total</Label>
+              <Input
+                type="number"
+                value={product.estoque?.toString() || '0'}
+                disabled={!isEditable}
+                className={isEditable ? '' : 'bg-gray-50'}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -700,6 +709,7 @@ export default function ProductEditPage({
                     <th className="p-2 text-left font-medium">Nome</th>
                     <th className="p-2 text-left font-medium">SKU</th>
                     <th className="p-2 text-left font-medium">EAN</th>
+                    <th className="p-2 text-center font-medium">Estoque</th>
                     {isEditable && <th className="w-10 p-2"></th>}
                   </tr>
                 </thead>
@@ -740,6 +750,24 @@ export default function ProductEditPage({
                           />
                         ) : (
                           <span className="font-mono text-xs">{v.ean || '—'}</span>
+                        )}
+                      </td>
+                      <td className="p-2 text-center">
+                        {isEditable ? (
+                          <Input
+                            type="number"
+                            min={0}
+                            value={v.estoque ?? 0}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10) || 0;
+                              setVariacoes((prev) =>
+                                prev.map((vv, ii) => ii === i ? { ...vv, estoque: val } : vv)
+                              );
+                            }}
+                            className="h-8 w-16 text-center mx-auto font-mono text-xs"
+                          />
+                        ) : (
+                          <span className="font-mono text-xs">{v.estoque ?? '—'}</span>
                         )}
                       </td>
                       {isEditable && (

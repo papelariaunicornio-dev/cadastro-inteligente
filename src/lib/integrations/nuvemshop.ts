@@ -75,6 +75,7 @@ export async function createNuvemshopProduct(
       height: draft.altura ? String(draft.altura) : undefined,
       width: draft.largura ? String(draft.largura) : undefined,
       depth: draft.profundidade ? String(draft.profundidade) : undefined,
+      stock: v.estoque || 0,
       values: [{ pt: v.nome }],
     }));
   } else {
@@ -84,6 +85,7 @@ export async function createNuvemshopProduct(
         price: String(draft.preco_final || draft.preco_sugerido || 0),
         sku: draft.sku || '',
         barcode: draft.ean || '',
+        stock: draft.estoque || 0,
         weight: draft.peso ? String(draft.peso) : undefined,
         height: draft.altura ? String(draft.altura) : undefined,
         width: draft.largura ? String(draft.largura) : undefined,

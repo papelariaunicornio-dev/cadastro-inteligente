@@ -64,6 +64,7 @@ export async function createShopifyProduct(
       price: String(v.preco || draft.preco_final || 0),
       sku: v.sku || '',
       barcode: v.ean || '',
+      inventory_quantity: v.estoque || 0,
       inventory_management: 'shopify',
     }));
   } else {
@@ -73,6 +74,7 @@ export async function createShopifyProduct(
         price: String(draft.preco_final || draft.preco_sugerido || 0),
         sku: draft.sku || '',
         barcode: draft.ean || '',
+        inventory_quantity: draft.estoque || 0,
         inventory_management: 'shopify',
       },
     ];

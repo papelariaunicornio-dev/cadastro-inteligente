@@ -72,6 +72,7 @@ export async function createTinyProduct(
     peso_liquido: draft.peso || 0,
     situacao: 'A',
     tipo: 'P',
+    estoque_atual: draft.estoque || 0,
 
     // Supplier data (from NF)
     codigo_pelo_fornecedor: draft.codigo_fornecedor || '',
@@ -120,6 +121,7 @@ export async function createTinyProduct(
         },
         gtin: v.ean || '',
         preco: v.preco || draft.preco_final || 0,
+        estoque_atual: v.estoque || 0,
       },
     }));
   }

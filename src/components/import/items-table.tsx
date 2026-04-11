@@ -109,7 +109,8 @@ export function ItemsTable() {
             <TableHead className={cn('text-center', headerClass)} onClick={() => handleSort('quantidade')}>
               Qtd <SortIcon column="quantidade" sortKey={sortKey} sortDir={sortDir} />
             </TableHead>
-            <TableHead className="text-center">Und/Item</TableHead>
+            <TableHead className="text-center" title="Unidades por embalagem">Multiplo</TableHead>
+            <TableHead className="text-center" title="Estoque total (Qtd x Multiplo)">Estoque</TableHead>
             <TableHead className={cn('text-right', headerClass)} onClick={() => handleSort('valor_unitario')}>
               V. Unit. <SortIcon column="valor_unitario" sortKey={sortKey} sortDir={sortDir} />
             </TableHead>
@@ -216,6 +217,9 @@ export function ItemsTable() {
                     }
                     className="mx-auto w-16 text-center"
                   />
+                </TableCell>
+                <TableCell className="text-center font-mono text-sm font-semibold text-primary">
+                  {Number(item.quantidade) * (item.unidades_por_item || 1)}
                 </TableCell>
                 <TableCell className="text-right text-sm">
                   {formatCurrency(Number(item.valor_unitario))}

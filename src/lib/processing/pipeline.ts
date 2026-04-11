@@ -285,13 +285,25 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
 
     // ========== SAVE DRAFT (only output goes to NocoDB) ==========
     let variacoes = generated.variacoes || [];
-    if (tipo === 'multiplos_itens' && items.length > 1) {
-      variacoes = items.map((item) => ({
-        nome: extractVariationName(item.descricao, items[0].descricao),
+    if (tipo === 'multiplos_itens' && effectiveItems.length > 1) {
+      variacoes = effectiveItems.map((item) => ({
+        nome: extractVariationName(item.descricao, effectiveItems[0].descricao),
         sku: `${generated.sku_sugerido}-${item.codigo}`,
         ean: item.ean || '',
         atributos: {},
         imagens: [],
+        // Each variation gets its own stock from NF quantities
+        estoque: Number(item.quantidade) * (item.unidades_por_item || 1),
+      }));
+    } else if (variacoes.length > 0) {
+      // com_variacao: divide estoque total equally among AI-discovered variations
+      const totalEstoque = effectiveItems.reduce((sum, item) =>
+        sum + (Number(item.quantidade) * (item.unidades_por_item || 1)), 0
+      );
+      const perVariation = Math.floor(totalEstoque / variacoes.length);
+      variacoes = variacoes.map((v) => ({
+        ...v,
+        estoque: perVariation,
       }));
     }
 
@@ -307,6 +319,10 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
       categoria: generated.categoria,
       tags: JSON.stringify(generated.tags),
       sku: generated.sku_sugerido,
+      // Estoque: soma qtd * multiplo de todos os itens do job
+      estoque: effectiveItems.reduce((sum, item) =>
+        sum + (Number(item.quantidade) * (item.unidades_por_item || 1)), 0
+      ),
       fornecedor_nome: nfImport?.fornecedor_fantasia || nfImport?.fornecedor_nome || null,
       fornecedor_cnpj: nfImport?.fornecedor_cnpj || null,
       codigo_fornecedor: primaryItem.codigo || null, // cProd da NF
