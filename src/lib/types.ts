@@ -112,6 +112,7 @@ export interface ProductImage {
   width?: number;
   height?: number;
   source: string;
+  origem: 'scrape' | 'searxng'; // Where the image came from
   selecionada: boolean;
   ordem: number;
 }

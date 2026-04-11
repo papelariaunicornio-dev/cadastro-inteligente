@@ -201,7 +201,12 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
       },
     });
 
-    const images = collectImages(scrapedData);
+    // Build search term for image search
+    const imageSearchTerm = isSearchJob
+      ? searchTerm
+      : `${searchResult.brand} ${effectiveItems[0]?.descricao || ''}`.trim();
+
+    const images = await collectImages(scrapedData, imageSearchTerm);
 
     await updateProgress({
       step: 'buscando_imagens',

@@ -618,10 +618,23 @@ export default function ProductEditPage({
                         {res.w}×{res.h}
                       </div>
                     )}
-                    {img.source === 'upload' && (
+                    {img.source === 'upload' ? (
                       <Badge variant="secondary" className="absolute right-2 bottom-2 text-[9px]">
                         Upload
                       </Badge>
+                    ) : (img as ProductImage & { origem?: string }).origem ? (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'absolute right-2 bottom-2 text-[9px]',
+                          (img as ProductImage & { origem?: string }).origem === 'searxng'
+                            ? 'border-purple-400 bg-purple-50 text-purple-800'
+                            : 'border-gray-400 bg-gray-50 text-gray-700'
+                        )}
+                      >
+                        {(img as ProductImage & { origem?: string }).origem === 'searxng' ? 'Busca' : 'Scrape'}
+                      </Badge>
+                    ) : null}
                     )}
                     {!img.selecionada && (
                       <div className="absolute inset-0 rounded-lg border-2 border-dashed border-gray-300 pointer-events-none" />
