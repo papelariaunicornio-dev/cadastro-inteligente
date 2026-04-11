@@ -19,8 +19,12 @@ export async function GET() {
       label: 'Nuvemshop',
     },
     firecrawl: {
-      configured: !!process.env.FIRECRAWL_API_KEY,
-      label: 'Firecrawl',
+      configured: !!process.env.FIRECRAWL_BASE_URL || !!process.env.FIRECRAWL_API_KEY,
+      label: process.env.FIRECRAWL_BASE_URL ? 'Firecrawl (self-hosted)' : 'Firecrawl (cloud)',
+    },
+    searxng: {
+      configured: !!process.env.SEARXNG_URL,
+      label: 'SearXNG (search)',
     },
     openai: {
       configured: !!process.env.OPENAI_API_KEY,

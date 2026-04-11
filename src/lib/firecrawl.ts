@@ -1,14 +1,30 @@
 /**
- * Firecrawl API client for web search and scraping.
- * Docs: https://docs.firecrawl.dev
+ * Firecrawl + SearXNG client for web search and scraping.
+ *
+ * Architecture:
+ * - Scrape: Firecrawl self-hosted (trieve/firecrawl on Coolify)
+ * - Search: SearXNG self-hosted (searxng on Coolify, same network)
+ *
+ * Uses FIRECRAWL_BASE_URL env var to point to self-hosted instance.
+ * Falls back to cloud API if FIRECRAWL_API_KEY is set but no base URL.
  */
 
-const FIRECRAWL_BASE = 'https://api.firecrawl.dev/v1';
+function getFirecrawlBase(): string {
+  // Self-hosted (preferred) — internal Coolify network or HTTPS domain
+  if (process.env.FIRECRAWL_BASE_URL) {
+    return process.env.FIRECRAWL_BASE_URL.replace(/\/$/, '');
+  }
+  // Cloud fallback
+  return 'https://api.firecrawl.dev/v1';
+}
+
+function getSearxngBase(): string {
+  // SearXNG self-hosted (same Coolify service network)
+  return process.env.SEARXNG_URL || 'http://searxng:8080';
+}
 
 function getApiKey(): string {
-  const key = process.env.FIRECRAWL_API_KEY;
-  if (!key) throw new Error('FIRECRAWL_API_KEY not set');
-  return key;
+  return process.env.FIRECRAWL_API_KEY || 'fc-self-hosted';
 }
 
 async function firecrawlRequest<T>(
@@ -16,11 +32,12 @@ async function firecrawlRequest<T>(
   body: Record<string, unknown>,
   retries = 3
 ): Promise<T> {
+  const base = getFirecrawlBase();
   const apiKey = getApiKey();
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const res = await fetch(`${FIRECRAWL_BASE}${path}`, {
+      const res = await fetch(`${base}${path}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -30,7 +47,6 @@ async function firecrawlRequest<T>(
       });
 
       if (res.status === 429) {
-        // Rate limited — wait and retry
         const waitMs = Math.min(2000 * Math.pow(2, attempt - 1), 30000);
         console.warn(`Firecrawl rate limited, waiting ${waitMs}ms (attempt ${attempt}/${retries})`);
         await new Promise((r) => setTimeout(r, waitMs));
@@ -46,7 +62,7 @@ async function firecrawlRequest<T>(
     } catch (error) {
       if (attempt === retries) throw error;
       const waitMs = 1000 * Math.pow(2, attempt - 1);
-      console.warn(`Firecrawl error, retrying in ${waitMs}ms...`, error);
+      console.warn(`Firecrawl error, retrying in ${waitMs}ms...`);
       await new Promise((r) => setTimeout(r, waitMs));
     }
   }
@@ -55,7 +71,7 @@ async function firecrawlRequest<T>(
 }
 
 // ==========================================
-// Search
+// Search (via SearXNG self-hosted)
 // ==========================================
 
 export interface FirecrawlSearchResult {
@@ -64,29 +80,50 @@ export interface FirecrawlSearchResult {
   description?: string;
 }
 
-interface SearchResponse {
-  success: boolean;
-  data: FirecrawlSearchResult[];
-}
-
+/**
+ * Search using SearXNG self-hosted instance.
+ * SearXNG provides web search without API keys or credits.
+ */
 export async function search(
   query: string,
   limit = 5
 ): Promise<FirecrawlSearchResult[]> {
+  const searxngBase = getSearxngBase();
+
   try {
-    const result = await firecrawlRequest<SearchResponse>('/search', {
-      query,
-      limit,
+    const params = new URLSearchParams({
+      q: query,
+      format: 'json',
+      categories: 'general',
+      language: 'pt-BR',
     });
-    return result.data || [];
+
+    const res = await fetch(`${searxngBase}/search?${params}`, {
+      headers: { Accept: 'application/json' },
+    });
+
+    if (!res.ok) {
+      throw new Error(`SearXNG ${res.status}: ${await res.text()}`);
+    }
+
+    const data = await res.json();
+    const results: FirecrawlSearchResult[] = (data.results || [])
+      .slice(0, limit)
+      .map((r: { url: string; title?: string; content?: string }) => ({
+        url: r.url,
+        title: r.title,
+        description: r.content,
+      }));
+
+    return results;
   } catch (error) {
-    console.error(`Firecrawl search failed for "${query}":`, error);
+    console.error(`SearXNG search failed for "${query}":`, error instanceof Error ? error.message : error);
     return [];
   }
 }
 
 // ==========================================
-// Scrape
+// Scrape (via Firecrawl self-hosted)
 // ==========================================
 
 export interface FirecrawlScrapeData {
@@ -110,13 +147,13 @@ export async function scrape(
   url: string
 ): Promise<FirecrawlScrapeData | null> {
   try {
-    const result = await firecrawlRequest<ScrapeResponse>('/scrape', {
+    const result = await firecrawlRequest<ScrapeResponse>('/v1/scrape', {
       url,
       formats: ['markdown'],
     });
     return result.data || null;
   } catch (error) {
-    console.error(`Firecrawl scrape failed for "${url}":`, error);
+    console.error(`Firecrawl scrape failed for "${url}":`, error instanceof Error ? error.message : error);
     return null;
   }
 }
