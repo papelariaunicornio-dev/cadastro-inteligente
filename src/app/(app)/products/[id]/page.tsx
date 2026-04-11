@@ -635,7 +635,6 @@ export default function ProductEditPage({
                         {(img as ProductImage & { origem?: string }).origem === 'searxng' ? 'Busca' : 'Scrape'}
                       </Badge>
                     ) : null}
-                    )}
                     {!img.selecionada && (
                       <div className="absolute inset-0 rounded-lg border-2 border-dashed border-gray-300 pointer-events-none" />
                     )}
