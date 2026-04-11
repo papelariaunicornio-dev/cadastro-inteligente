@@ -15,8 +15,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Cadastro Inteligente',
-  description: 'Cadastro automático e formação de preço de mercadorias',
+  title: 'Skuni',
+  description: 'Skuni — Cadastro e precificação inteligente de produtos',
 };
 
 export default function RootLayout({

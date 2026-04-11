@@ -36,10 +36,10 @@ export function Sidebar() {
         </div>
         <div>
           <h1 className="text-sm font-semibold tracking-tight">
-            Cadastro Inteligente
+            Skuni
           </h1>
           <p className="text-[10px] text-sidebar-foreground/50">
-            Automacao de catalogo
+            Cadastro + Preco inteligente
           </p>
         </div>
       </div>

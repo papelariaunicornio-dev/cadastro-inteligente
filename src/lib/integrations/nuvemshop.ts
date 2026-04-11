@@ -19,7 +19,7 @@ function getConfig(): { baseUrl: string; token: string; userAgent: string } {
   return {
     baseUrl: `https://api.nuvemshop.com.br/v1/${storeId}`,
     token,
-    userAgent: 'CadastroInteligente (cadastro-inteligente@papelariaunicornio.com.br)',
+    userAgent: 'Skuni (skuni@papelariaunicornio.com.br)',
   };
 }
 

@@ -44,10 +44,10 @@ export default function LoginPage() {
             <Sparkles className="h-7 w-7 text-white" />
           </div>
           <h1 className="text-xl font-bold tracking-tight text-gray-900">
-            Cadastro Inteligente
+            Skuni
           </h1>
           <p className="text-sm text-muted-foreground">
-            Automação de catálogo com IA
+            Cadastro + Preco inteligente
           </p>
         </CardHeader>
         <CardContent>

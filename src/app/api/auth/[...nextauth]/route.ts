@@ -24,7 +24,7 @@ const handler = NextAuth({
           return {
             id: '1',
             name: username,
-            email: `${username}@cadastro-inteligente.local`,
+            email: `${username}@skuni.local`,
           };
         }
 
