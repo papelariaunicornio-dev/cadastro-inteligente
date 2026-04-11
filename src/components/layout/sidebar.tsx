@@ -11,15 +11,17 @@ import {
   LogOut,
   Sparkles,
   Activity,
+  Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/import', label: 'Importar XML', icon: Upload },
+  { href: '/search', label: 'Pesquisa', icon: Search },
   { href: '/processing', label: 'Processamento', icon: Activity },
   { href: '/products', label: 'Produtos', icon: Package },
-  { href: '/settings', label: 'Configurações', icon: Settings },
+  { href: '/settings', label: 'Configuracoes', icon: Settings },
 ];
 
 export function Sidebar() {
@@ -37,7 +39,7 @@ export function Sidebar() {
             Cadastro Inteligente
           </h1>
           <p className="text-[10px] text-sidebar-foreground/50">
-            Automação de catálogo
+            Automacao de catalogo
           </p>
         </div>
       </div>

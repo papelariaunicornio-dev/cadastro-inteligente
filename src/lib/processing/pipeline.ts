@@ -76,33 +76,65 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
       updated_at: new Date().toISOString(),
     }).catch(() => {}); // Non-critical
 
-    // Load data from NocoDB
-    const nfImport = await get<NfImport>(TABLES.NF_IMPORTS, nfImportId);
-    const allItems = await list<NfItem>(TABLES.NF_ITEMS, {
-      where: `(nf_import_id,eq,${nfImportId})`,
-      limit: 200,
-    });
-    const items = allItems.list.filter((item) => itemIds.includes(item.Id));
+    const settings = await loadSettings();
+    const isSearchJob = nfImportId === 'search';
+    const searchTerm = isSearchJob ? (grupoId || '') : '';
 
-    if (items.length === 0) {
-      throw new Error('Nenhum item encontrado para este job');
+    let items: NfItem[] = [];
+    let nfImport: NfImport | null = null;
+
+    if (!isSearchJob) {
+      // Load NF data
+      nfImport = await get<NfImport>(TABLES.NF_IMPORTS, nfImportId);
+      const allItems = await list<NfItem>(TABLES.NF_ITEMS, {
+        where: `(nf_import_id,eq,${nfImportId})`,
+        limit: 200,
+      });
+      items = allItems.list.filter((item) => itemIds.includes(item.Id));
+
+      if (items.length === 0) {
+        throw new Error('Nenhum item encontrado para este job');
+      }
     }
 
-    const settings = await loadSettings();
-
     // ========== SEARCH ==========
-    await updateProgress({ step: 'pesquisando', message: 'Buscando produto na web...' });
+    await updateProgress({ step: 'pesquisando', message: isSearchJob ? `Pesquisando "${searchTerm}"...` : 'Buscando produto na web...' });
 
-    const searchResult = await withTimeout(
-      searchProduct({
-        items,
-        fornecedorCnpj: nfImport.fornecedor_cnpj,
-        fornecedorNome: nfImport.fornecedor_nome,
-        fornecedorFantasia: nfImport.fornecedor_fantasia,
-      }),
-      STEP_TIMEOUT_MS,
-      'search'
-    );
+    let searchResult: Awaited<ReturnType<typeof searchProduct>>;
+
+    if (isSearchJob) {
+      // Search-based job: use the search term directly
+      const { search: searxSearch } = await import('@/lib/firecrawl');
+      const { classifyUrls } = await import('./classify-urls');
+
+      const results = await withTimeout(
+        searxSearch(searchTerm, 10),
+        STEP_TIMEOUT_MS,
+        'search'
+      );
+
+      const allUrls = results.map((r) => r.url);
+      const classified = classifyUrls(allUrls);
+
+      searchResult = {
+        brand: '',
+        allUrls,
+        classified,
+        rawResults: results,
+        firecrawlCredits: 1,
+      };
+    } else {
+      searchResult = await withTimeout(
+        searchProduct({
+          items,
+          fornecedorCnpj: nfImport!.fornecedor_cnpj,
+          fornecedorNome: nfImport!.fornecedor_nome,
+          fornecedorFantasia: nfImport!.fornecedor_fantasia,
+        }),
+        STEP_TIMEOUT_MS,
+        'search'
+      );
+    }
 
     await updateProgress({
       step: 'pesquisando',
@@ -202,9 +234,23 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
       imagesFound: images.length,
     });
 
+    // For search jobs without NF items, create a mock item from scraped data
+    const effectiveItems = isSearchJob
+      ? [{
+          Id: 0, nf_import_id: 'search', n_item: 1,
+          codigo: '', ean: null, ncm: '',
+          descricao: searchTerm,
+          cfop: '', unidade_comercial: 'UN',
+          quantidade: 1, unidades_por_item: 1,
+          valor_unitario: 0, valor_produto: 0, valor_ipi: 0,
+          classificacao: null, grupo_id: null, selecionado: false,
+          created_at: new Date().toISOString(),
+        } as NfItem]
+      : items;
+
     const generateResult = await withTimeout(
       generateProductDraft({
-        items,
+        items: effectiveItems,
         tipo: tipo as 'sem_variacao' | 'com_variacao' | 'multiplos_itens',
         brand: searchResult.brand,
         scrapedData,
@@ -217,7 +263,7 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
     const openaiUsage = generateResult.usage;
 
     // ========== PRICE ==========
-    const primaryItem = items[0];
+    const primaryItem = effectiveItems[0];
     const { custoUnitario, custoComIpi } = calculateUnitCost(primaryItem);
     const priceComposition = calculateSuggestedPrice(custoComIpi, {
       aliquota_impostos: Number(settings?.aliquota_impostos) || 6,
