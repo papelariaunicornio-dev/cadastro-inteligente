@@ -245,7 +245,7 @@ export async function searchImages(
           // Skip small/irrelevant images
           if (/icon|logo|favicon|sprite|banner|selo|pixel|tracking/i.test(imgUrl)) continue;
           const sizeMatch = imgUrl.match(/(\d+)x(\d+)/);
-          if (sizeMatch && (parseInt(sizeMatch[1]) < 200 || parseInt(sizeMatch[2]) < 200)) continue;
+          if (sizeMatch && (parseInt(sizeMatch[1]) < 300 || parseInt(sizeMatch[2]) < 300)) continue;
 
           seenUrls.add(imgUrl);
           results.push({
