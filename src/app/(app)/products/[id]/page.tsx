@@ -22,6 +22,7 @@ import {
   Plus,
   X,
   RotateCcw,
+  Search,
 } from 'lucide-react';
 import type {
   ProductDraft,
@@ -126,6 +127,9 @@ export default function ProductEditPage({
 
   // Description view mode
   const [descViewMode, setDescViewMode] = useState<'rendered' | 'html'>('rendered');
+
+  // Image search
+  const [searchingImages, setSearchingImages] = useState(false);
 
   // Tiny categories
   const [tinyCategories, setTinyCategories] = useState<{ id: string; nome: string; path: string }[]>([]);
@@ -752,6 +756,61 @@ export default function ProductEditPage({
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Search more images button */}
+          {isEditable && (
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  setSearchingImages(true);
+                  try {
+                    const res = await fetch('/api/images/search', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ query: titulo || product.titulo }),
+                    });
+                    const data = await res.json();
+                    if (data.images && data.images.length > 0) {
+                      const existingUrls = new Set(images.map((i) => i.url));
+                      const newImages: ProductImage[] = [];
+                      for (const img of data.images) {
+                        if (existingUrls.has(img.url)) continue;
+                        existingUrls.add(img.url);
+                        newImages.push({
+                          url: img.url,
+                          source: img.source || 'Busca',
+                          origem: 'searxng' as const,
+                          selecionada: false,
+                          ordem: images.length + newImages.length,
+                        });
+                      }
+                      if (newImages.length > 0) {
+                        setImages((prev) => [...prev, ...newImages]);
+                        toast.success(`${newImages.length} nova(s) imagem(ns) encontrada(s)`);
+                      } else {
+                        toast.info('Nenhuma imagem nova encontrada');
+                      }
+                    } else {
+                      toast.info('Nenhuma imagem encontrada');
+                    }
+                  } catch {
+                    toast.error('Erro ao buscar imagens');
+                  } finally {
+                    setSearchingImages(false);
+                  }
+                }}
+                disabled={searchingImages}
+              >
+                {searchingImages ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="mr-2 h-4 w-4" />
+                )}
+                {searchingImages ? 'Buscando imagens...' : 'Buscar mais imagens'}
+              </Button>
             </div>
           )}
         </CardContent>
