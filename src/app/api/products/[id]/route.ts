@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { get, update } from '@/lib/nocodb';
+import { get, update, remove } from '@/lib/nocodb';
 import { TABLES } from '@/lib/nocodb-tables';
 import type { ProductDraft } from '@/lib/types';
 import { ProductUpdateSchema } from '@/lib/schemas';
@@ -49,6 +49,24 @@ export async function PATCH(
     console.error('Product update error:', error instanceof Error ? error.message : error);
     return NextResponse.json(
       { error: 'Erro ao atualizar produto' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  try {
+    await remove(TABLES.PRODUCT_DRAFTS, id);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Product delete error:', error instanceof Error ? error.message : error);
+    return NextResponse.json(
+      { error: 'Erro ao deletar produto' },
       { status: 500 }
     );
   }

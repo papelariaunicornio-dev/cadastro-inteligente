@@ -75,15 +75,11 @@ export default function ProductsPage() {
     let count = 0;
     for (const id of selectedIds) {
       try {
-        await fetch(`/api/products/${id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'descartado' }),
-        });
+        await fetch(`/api/products/${id}`, { method: 'DELETE' });
         count++;
       } catch { /* continue */ }
     }
-    toast.success(`${count} produto(s) descartado(s)`);
+    toast.success(`${count} produto(s) deletado(s)`);
     clearSelection();
     fetchData();
     setBulkDeleting(false);

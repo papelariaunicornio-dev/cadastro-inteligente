@@ -29,7 +29,9 @@ export async function GET(request: NextRequest) {
 
   try {
     const { status, limit, offset } = parsed.data;
-    const where = status ? `(status,eq,${status})` : undefined;
+    const where = status
+      ? `(status,eq,${status})`
+      : '(status,neq,descartado)';
 
     const result = await list<ProductDraft>(TABLES.PRODUCT_DRAFTS, {
       where,
