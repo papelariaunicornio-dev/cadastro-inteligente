@@ -1,30 +1,24 @@
 /**
- * Firecrawl + SearXNG client for web search and scraping.
+ * Web search and scraping client.
  *
- * Architecture:
- * - Scrape: Firecrawl self-hosted (trieve/firecrawl on Coolify)
- * - Search: SearXNG self-hosted (searxng on Coolify, same network)
- *
- * Uses FIRECRAWL_BASE_URL env var to point to self-hosted instance.
- * Falls back to cloud API if FIRECRAWL_API_KEY is set but no base URL.
+ * Search: Firecrawl cloud /search endpoint (reliable, uses credits)
+ *         Falls back to SearXNG self-hosted if available
+ * Scrape: Firecrawl cloud /scrape endpoint
+ * Images: Firecrawl cloud /search with image-focused queries
  */
 
-function getFirecrawlBase(): string {
-  // Self-hosted (preferred) — internal Coolify network or HTTPS domain
-  if (process.env.FIRECRAWL_BASE_URL) {
-    return process.env.FIRECRAWL_BASE_URL.replace(/\/$/, '');
-  }
-  // Cloud fallback
-  return 'https://api.firecrawl.dev/v1';
-}
+const FIRECRAWL_CLOUD = 'https://api.firecrawl.dev/v1';
 
-function getSearxngBase(): string {
-  // SearXNG self-hosted (same Coolify service network)
-  return process.env.SEARXNG_URL || 'http://searxng:8080';
+function getFirecrawlBase(): string {
+  return process.env.FIRECRAWL_BASE_URL?.replace(/\/$/, '') || FIRECRAWL_CLOUD;
 }
 
 function getApiKey(): string {
-  return process.env.FIRECRAWL_API_KEY || 'fc-self-hosted';
+  return process.env.FIRECRAWL_API_KEY || '';
+}
+
+function getSearxngBase(): string | null {
+  return process.env.SEARXNG_URL || null;
 }
 
 async function firecrawlRequest<T>(
@@ -48,7 +42,7 @@ async function firecrawlRequest<T>(
 
       if (res.status === 429) {
         const waitMs = Math.min(2000 * Math.pow(2, attempt - 1), 30000);
-        console.warn(`Firecrawl rate limited, waiting ${waitMs}ms (attempt ${attempt}/${retries})`);
+        console.warn(`Firecrawl rate limited, waiting ${waitMs}ms`);
         await new Promise((r) => setTimeout(r, waitMs));
         continue;
       }
@@ -71,7 +65,7 @@ async function firecrawlRequest<T>(
 }
 
 // ==========================================
-// Search (via SearXNG self-hosted)
+// Search
 // ==========================================
 
 export interface FirecrawlSearchResult {
@@ -80,50 +74,69 @@ export interface FirecrawlSearchResult {
   description?: string;
 }
 
+interface FirecrawlSearchResponse {
+  success: boolean;
+  data: FirecrawlSearchResult[];
+}
+
 /**
- * Search using SearXNG self-hosted instance.
- * SearXNG provides web search without API keys or credits.
+ * Search using Firecrawl cloud API.
+ * Falls back to SearXNG if Firecrawl search fails.
  */
 export async function search(
   query: string,
   limit = 5
 ): Promise<FirecrawlSearchResult[]> {
-  const searxngBase = getSearxngBase();
-
+  // Try Firecrawl cloud search first (most reliable)
   try {
-    const params = new URLSearchParams({
-      q: query,
-      format: 'json',
-      categories: 'general',
-      language: 'pt-BR',
+    const result = await firecrawlRequest<FirecrawlSearchResponse>('/search', {
+      query,
+      limit,
     });
-
-    const res = await fetch(`${searxngBase}/search?${params}`, {
-      headers: { Accept: 'application/json' },
-    });
-
-    if (!res.ok) {
-      throw new Error(`SearXNG ${res.status}: ${await res.text()}`);
+    if (result.data && result.data.length > 0) {
+      return result.data;
     }
-
-    const data = await res.json();
-    const results: FirecrawlSearchResult[] = (data.results || [])
-      .slice(0, limit)
-      .map((r: { url: string; title?: string; content?: string }) => ({
-        url: r.url,
-        title: r.title,
-        description: r.content,
-      }));
-
-    return results;
   } catch (error) {
-    console.error(`SearXNG search failed for "${query}":`, error instanceof Error ? error.message : error);
-    return [];
+    console.warn(`Firecrawl search failed, trying SearXNG:`, error instanceof Error ? error.message : error);
   }
+
+  // Fallback: SearXNG self-hosted
+  const searxngBase = getSearxngBase();
+  if (searxngBase) {
+    try {
+      const params = new URLSearchParams({
+        q: query,
+        format: 'json',
+        categories: 'general',
+        language: 'pt-BR',
+      });
+
+      const res = await fetch(`${searxngBase}/search?${params}`, {
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        return (data.results || [])
+          .slice(0, limit)
+          .map((r: { url: string; title?: string; content?: string }) => ({
+            url: r.url,
+            title: r.title,
+            description: r.content,
+          }));
+      }
+    } catch {
+      console.warn('SearXNG also unavailable');
+    }
+  }
+
+  console.error(`All search methods failed for "${query}"`);
+  return [];
 }
 
 // ==========================================
-// Scrape (via Firecrawl self-hosted)
+// Scrape
 // ==========================================
 
 export interface FirecrawlScrapeData {
@@ -153,7 +166,83 @@ export async function scrape(
     });
     return result.data || null;
   } catch (error) {
-    console.error(`Firecrawl scrape failed for "${url}":`, error instanceof Error ? error.message : error);
+    console.error(`Scrape failed for "${url}":`, error instanceof Error ? error.message : error);
     return null;
   }
+}
+
+// ==========================================
+// Image Search (via Firecrawl search + filter)
+// ==========================================
+
+export interface ImageSearchResult {
+  url: string;
+  source: string;
+  title?: string;
+}
+
+/**
+ * Search for product images.
+ * Uses Firecrawl search with image-focused queries,
+ * then falls back to SearXNG image category if available.
+ */
+export async function searchImages(
+  query: string,
+  limit = 15
+): Promise<ImageSearchResult[]> {
+  const results: ImageSearchResult[] = [];
+  const seenUrls = new Set<string>();
+
+  // 1. Try SearXNG image search (free, dedicated image category)
+  const searxngBase = getSearxngBase();
+  if (searxngBase) {
+    try {
+      const params = new URLSearchParams({
+        q: query,
+        format: 'json',
+        categories: 'images',
+        language: 'pt-BR',
+      });
+
+      const res = await fetch(`${searxngBase}/search?${params}`, {
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        for (const r of (data.results || []).slice(0, limit)) {
+          const imgUrl = r.img_src || r.url;
+          if (!imgUrl || !imgUrl.startsWith('http') || seenUrls.has(imgUrl)) continue;
+          seenUrls.add(imgUrl);
+          results.push({
+            url: imgUrl,
+            source: r.source || 'SearXNG',
+            title: r.title,
+          });
+        }
+      }
+    } catch {
+      console.warn('SearXNG image search unavailable');
+    }
+  }
+
+  // 2. Use Firecrawl search with image-focused query as supplement
+  if (results.length < 5) {
+    try {
+      const searchResults = await search(`${query} produto imagem`, 5);
+      for (const r of searchResults) {
+        if (!seenUrls.has(r.url)) {
+          seenUrls.add(r.url);
+          results.push({
+            url: r.url,
+            source: 'Firecrawl Search',
+            title: r.title,
+          });
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  return results.slice(0, limit);
 }
