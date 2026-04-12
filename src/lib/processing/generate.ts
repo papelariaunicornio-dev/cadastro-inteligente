@@ -130,8 +130,28 @@ export async function generateProductDraft(
   userPrompt += `- Incluir especificações técnicas: ${settings?.incluir_specs !== false ? 'Sim' : 'Não'}\n`;
 
   // SKU
-  const prefixo = settings?.prefixo_sku || 'PU';
-  userPrompt += `- Prefixo SKU: ${prefixo}\n`;
+  const prefixo = settings?.prefixo_sku || '';
+  const formatoSku = settings?.formato_sku || '';
+  userPrompt += `\n## Regras de SKU\n`;
+  if (prefixo) {
+    userPrompt += `- Prefixo: "${prefixo}"\n`;
+    userPrompt += `  Interpretação: ${prefixo}\n`;
+    userPrompt += `  Se o prefixo contém instruções como "{Marca. Abreviado a max 3 caracteres}", aplique a regra (ex: Molin → MOL, Pentel → PEN, CIS → CIS)\n`;
+  }
+  if (formatoSku) {
+    userPrompt += `- Formato: "${formatoSku}"\n`;
+    userPrompt += `  Interpretação: aplique cada parte do formato ao produto.\n`;
+    userPrompt += `  Exemplos de como interpretar:\n`;
+    userPrompt += `    "{descr produto max 12 caracteres}" → abreviar a descrição do produto para max 12 chars, sem espaços, uppercase\n`;
+    userPrompt += `    "{abrev variação, se houver}" → abreviação da variação (cor, tamanho), se existir\n`;
+    userPrompt += `    Exemplo: "Copo Térmico Hot e Cold 325ml" com marca Molin → SKU: "MOL-COPOTERMHC-325"\n`;
+  }
+  if (!prefixo && !formatoSku) {
+    userPrompt += `- Use o formato padrão: {MARCA3}-{DESCRICAO_ABREV}-{VARIACAO}\n`;
+    userPrompt += `  Exemplo: MOL-COPOTERMHC-325\n`;
+  }
+  userPrompt += `- SKU deve ter no máximo 32 caracteres, sem espaços, sem acentos, sem caracteres especiais (apenas letras, números e hífen)\n`;
+  userPrompt += `- O SKU NÃO deve repetir a marca se ela já está no prefixo\n`;
 
   userPrompt += `\n## Formato de Saída (JSON)\n`;
   userPrompt += `Retorne um JSON com exatamente esta estrutura:\n`;
@@ -142,7 +162,7 @@ export async function generateProductDraft(
   "marca": "string",
   "categoria": "string",
   "tags": ["string"],
-  "sku_sugerido": "string (formato: ${prefixo}-XXX-000)",
+  "sku_sugerido": "string (seguir regras de SKU acima, max 32 chars, sem espacos/acentos)",
   "peso_estimado": number ou null (em kg),
   "dimensoes": {"altura": number|null, "largura": number|null, "profundidade": number|null},
   "atributos": {"chave": "valor"},
