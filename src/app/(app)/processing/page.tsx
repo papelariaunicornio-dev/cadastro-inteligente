@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
@@ -170,9 +171,13 @@ function StepProgress({ currentStatus }: { currentStatus: string }) {
 function JobCard({
   job,
   onRetry,
+  selected,
+  onToggleSelect,
 }: {
   job: DetailedJob;
   onRetry: (id: number) => void;
+  selected: boolean;
+  onToggleSelect: (id: number) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const config = STATUS_CONFIG[job.status] || STATUS_CONFIG.pendente;
@@ -200,6 +205,12 @@ function JobCard({
         onClick={() => setExpanded((v) => !v)}
       >
         <div className="flex items-center gap-3 min-w-0 flex-1">
+          <Checkbox
+            checked={selected}
+            onCheckedChange={() => onToggleSelect(job.id)}
+            onClick={(e) => e.stopPropagation()}
+            className="shrink-0"
+          />
           {expanded ? (
             <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
           ) : (
@@ -412,6 +423,8 @@ export default function ProcessingPage() {
   const [loading, setLoading] = useState(true);
   const [resetting, setResetting] = useState(false);
   const [filter, setFilter] = useState<string>('all');
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkRetrying, setBulkRetrying] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -454,6 +467,38 @@ export default function ProcessingPage() {
     } catch {
       toast.error('Erro ao reprocessar');
     }
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllFiltered = () => {
+    const ids = filteredJobs.map((j) => j.id);
+    setSelectedIds(new Set(ids));
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleBulkRetry = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkRetrying(true);
+    let count = 0;
+    for (const id of selectedIds) {
+      try {
+        await fetch(`/api/jobs/${id}/retry`, { method: 'POST' });
+        count++;
+      } catch { /* continue */ }
+    }
+    toast.success(`${count} job(s) reenviado(s) para processamento`);
+    setSelectedIds(new Set());
+    fetchData();
+    setBulkRetrying(false);
   };
 
   const filteredJobs = filter === 'all'
@@ -533,6 +578,32 @@ export default function ProcessingPage() {
 
       <Separator />
 
+      {/* Selection actions bar */}
+      {filteredJobs.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={selectedIds.size === filteredJobs.length ? clearSelection : selectAllFiltered}>
+            {selectedIds.size === filteredJobs.length ? 'Desmarcar todos' : 'Selecionar todos'}
+          </Button>
+          {selectedIds.size > 0 && (
+            <>
+              <span className="text-sm text-muted-foreground">{selectedIds.size} selecionado(s)</span>
+              <Button
+                size="sm"
+                onClick={handleBulkRetry}
+                disabled={bulkRetrying}
+              >
+                {bulkRetrying ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <RotateCcw className="mr-1 h-3 w-3" />
+                )}
+                Reprocessar selecionados
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Jobs list */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -549,7 +620,13 @@ export default function ProcessingPage() {
       ) : (
         <div className="space-y-3">
           {filteredJobs.map((job) => (
-            <JobCard key={job.id} job={job} onRetry={handleRetry} />
+            <JobCard
+              key={job.id}
+              job={job}
+              onRetry={handleRetry}
+              selected={selectedIds.has(job.id)}
+              onToggleSelect={toggleSelect}
+            />
           ))}
         </div>
       )}
