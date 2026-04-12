@@ -44,6 +44,51 @@ function fonteBadgeClass(tipo: string): string {
   }
 }
 
+// Known site names by domain
+const SITE_NAMES: Record<string, string> = {
+  'amazon.com.br': 'Amazon',
+  'mercadolivre.com.br': 'Mercado Livre',
+  'shopee.com.br': 'Shopee',
+  'magazineluiza.com.br': 'Magalu',
+  'magalu.com.br': 'Magalu',
+  'americanas.com.br': 'Americanas',
+  'casasbahia.com.br': 'Casas Bahia',
+  'kalunga.com.br': 'Kalunga',
+  'carrefour.com.br': 'Carrefour',
+  'extra.com.br': 'Extra',
+  'submarino.com.br': 'Submarino',
+  'aliexpress.com': 'AliExpress',
+  'pentel.com.br': 'Pentel',
+  'cis.com.br': 'CIS',
+  'molin.com.br': 'Molin',
+  'ciceros.com.br': 'Ciceros',
+  'faber-castell.com.br': 'Faber-Castell',
+  'papelariaunicornio.com.br': 'Papelaria Unicornio',
+  'grafittiartes.com.br': 'Grafitti Artes',
+  'lumen.com.mx': 'Lumen',
+  'digit-eyes.com': 'Digit-Eyes',
+  'walmart.com': 'Walmart',
+  'walmartimages.com': 'Walmart',
+};
+
+function formatSourceLabel(url: string, titulo?: string): string {
+  let siteName = '';
+  try {
+    const hostname = new URL(url).hostname.replace('www.', '').replace('lista.', '').replace('produto.', '');
+    siteName = SITE_NAMES[hostname] || hostname.split('.')[0].charAt(0).toUpperCase() + hostname.split('.')[0].slice(1);
+  } catch {
+    siteName = url.substring(0, 30);
+  }
+
+  if (titulo && titulo.length > 5) {
+    // Truncate title if too long
+    const shortTitle = titulo.length > 60 ? titulo.substring(0, 57) + '...' : titulo;
+    return `${siteName} | ${shortTitle}`;
+  }
+
+  return siteName;
+}
+
 function formatCurrency(value: number | null | undefined): string {
   if (value == null) return '—';
   return `R$ ${Number(value).toLocaleString('pt-BR', {
@@ -953,8 +998,8 @@ export default function ProductEditPage({
                   <div key={i} className="flex items-center gap-2 text-sm">
                     <Badge variant="outline" className={cn('text-[10px]', fonteBadgeClass(p.fonte))}>{p.fonte}</Badge>
                     <span className="font-mono">{formatCurrency(p.preco)}</span>
-                    <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate max-w-[300px]">
-                      {(() => { try { return new URL(p.url).hostname; } catch { return p.url; } })()}
+                    <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate max-w-[400px]">
+                      {formatSourceLabel(p.url)}
                       <ExternalLink className="ml-1 inline h-3 w-3" />
                     </a>
                   </div>
@@ -976,8 +1021,8 @@ export default function ProductEditPage({
               {fontes.map((f: { tipo: string; url: string; titulo?: string }, i: number) => (
                 <div key={i} className="flex items-center gap-2 text-sm">
                   <Badge variant="outline" className={cn('text-[10px]', fonteBadgeClass(f.tipo))}>{f.tipo}</Badge>
-                  <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
-                    {f.titulo || f.url}
+                  <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate max-w-[500px]">
+                    {formatSourceLabel(f.url, f.titulo)}
                     <ExternalLink className="ml-1 inline h-3 w-3" />
                   </a>
                 </div>
