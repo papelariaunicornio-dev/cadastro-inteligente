@@ -23,6 +23,7 @@ import {
   FileText,
   AlertTriangle,
   Filter,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -425,6 +426,7 @@ export default function ProcessingPage() {
   const [filter, setFilter] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkRetrying, setBulkRetrying] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -499,6 +501,23 @@ export default function ProcessingPage() {
     setSelectedIds(new Set());
     fetchData();
     setBulkRetrying(false);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Deletar ${selectedIds.size} job(s) e seus produtos associados?`)) return;
+    setBulkDeleting(true);
+    let count = 0;
+    for (const id of selectedIds) {
+      try {
+        await fetch(`/api/jobs/${id}/delete`, { method: 'DELETE' });
+        count++;
+      } catch { /* continue */ }
+    }
+    toast.success(`${count} job(s) deletado(s)`);
+    setSelectedIds(new Set());
+    fetchData();
+    setBulkDeleting(false);
   };
 
   const filteredJobs = filter === 'all'
@@ -598,6 +617,19 @@ export default function ProcessingPage() {
                   <RotateCcw className="mr-1 h-3 w-3" />
                 )}
                 Reprocessar selecionados
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+              >
+                {bulkDeleting ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-1 h-3 w-3" />
+                )}
+                Deletar selecionados
               </Button>
             </>
           )}

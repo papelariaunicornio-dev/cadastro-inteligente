@@ -14,9 +14,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Loader2, Eye, Package, Clock, CheckCircle, Upload } from 'lucide-react';
+import { Loader2, Eye, Package, Clock, CheckCircle, Upload, Trash2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import type { ProductDraft } from '@/lib/types';
 import { ProcessingJobs } from '@/components/products/processing-jobs';
+import { toast } from 'sonner';
 
 interface Counts {
   processando: number;
@@ -37,6 +39,8 @@ export default function ProductsPage() {
   const [counts, setCounts] = useState<Counts>({ processando: 0, aguardando: 0, aprovados: 0 });
   const [products, setProducts] = useState<ProductDraft[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -61,6 +65,39 @@ export default function ProductsPage() {
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, [fetchData]);
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => setSelectedIds(new Set(products.map((p) => p.Id)));
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Deletar ${selectedIds.size} produto(s)?`)) return;
+    setBulkDeleting(true);
+    let count = 0;
+    for (const id of selectedIds) {
+      try {
+        await fetch(`/api/products/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'descartado' }),
+        });
+        count++;
+      } catch { /* continue */ }
+    }
+    toast.success(`${count} produto(s) descartado(s)`);
+    setSelectedIds(new Set());
+    fetchData();
+    setBulkDeleting(false);
+  };
 
   const firstImage = (product: ProductDraft): string | null => {
     try {
@@ -136,10 +173,32 @@ export default function ProductsPage() {
           </CardContent>
         </Card>
       ) : (
+        <>
+        {/* Selection actions */}
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <Button variant="outline" size="sm" onClick={selectedIds.size === products.length ? clearSelection : selectAll}>
+            {selectedIds.size === products.length ? 'Desmarcar todos' : 'Selecionar todos'}
+          </Button>
+          {selectedIds.size > 0 && (
+            <>
+              <span className="text-sm text-muted-foreground">{selectedIds.size} selecionado(s)</span>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+              >
+                {bulkDeleting ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Trash2 className="mr-1 h-3 w-3" />}
+                Deletar selecionados
+              </Button>
+            </>
+          )}
+        </div>
         <div className="rounded-md border bg-white overflow-x-auto">
           <Table className="min-w-[700px]">
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10"></TableHead>
                 <TableHead className="w-16">Img</TableHead>
                 <TableHead>Título</TableHead>
                 <TableHead>Marca</TableHead>
@@ -162,8 +221,17 @@ export default function ProductsPage() {
                   <TableRow
                     key={product.Id}
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => router.push(`/products/${product.Id}`)}
+                    onClick={(e) => {
+                      if ((e.target as HTMLElement).closest('[data-checkbox]')) return;
+                      router.push(`/products/${product.Id}`);
+                    }}
                   >
+                    <TableCell data-checkbox>
+                      <Checkbox
+                        checked={selectedIds.has(product.Id)}
+                        onCheckedChange={() => toggleSelect(product.Id)}
+                      />
+                    </TableCell>
                     <TableCell>
                       {img ? (
                         <img
@@ -222,6 +290,7 @@ export default function ProductsPage() {
             </TableBody>
           </Table>
         </div>
+        </>
       )}
     </div>
   );
