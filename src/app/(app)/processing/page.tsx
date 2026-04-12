@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import Link from 'next/link';
 import {
   Loader2,
   AlertCircle,
@@ -58,6 +59,7 @@ interface DetailedJob {
   dados_scraping: ScrapingSummary[] | null;
   has_prompt: boolean;
   has_response: boolean;
+  draft_id: number | null;
 }
 
 interface Summary {
@@ -217,11 +219,23 @@ function JobCard({
                 </span>
               )}
             </div>
-            <p className="text-xs text-muted-foreground truncate mt-0.5">
-              {job.items.length > 0
-                ? job.items.slice(0, 2).join(' | ') + (job.items.length > 2 ? ` +${job.items.length - 2}` : '')
-                : `${job.item_count} item(s)`}
-            </p>
+            {job.draft_id ? (
+              <Link
+                href={`/products/${job.draft_id}`}
+                className="text-xs text-primary hover:underline truncate mt-0.5 block"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {job.items.length > 0
+                  ? job.items.slice(0, 2).join(' | ') + (job.items.length > 2 ? ` +${job.items.length - 2}` : '')
+                  : `${job.item_count} item(s)`}
+              </Link>
+            ) : (
+              <p className="text-xs text-muted-foreground truncate mt-0.5">
+                {job.items.length > 0
+                  ? job.items.slice(0, 2).join(' | ') + (job.items.length > 2 ? ` +${job.items.length - 2}` : '')
+                  : `${job.item_count} item(s)`}
+              </p>
+            )}
           </div>
         </div>
 

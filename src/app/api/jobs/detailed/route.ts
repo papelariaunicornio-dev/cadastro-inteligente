@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAllJobStatuses } from '@/lib/queue';
 import { list, get } from '@/lib/nocodb';
 import { TABLES } from '@/lib/nocodb-tables';
-import type { NfImport, NfItem, ProcessingJob } from '@/lib/types';
+import type { NfImport, NfItem, ProcessingJob, ProductDraft } from '@/lib/types';
 
 /**
  * Returns detailed job status.
@@ -64,10 +64,25 @@ export async function GET() {
             ai_generated: qj.progress.aiGenerated || false,
             price_calculated: qj.progress.priceCalculated || false,
             draft_created: qj.progress.draftCreated || false,
+            draft_id: null as number | null, // will be filled below
             source: 'bullmq' as const,
           };
         })
       );
+
+      // Fill draft_id for completed jobs
+      for (const job of enriched) {
+        if (job.draft_created || job.status === 'concluido') {
+          try {
+            const drafts = await list<ProductDraft>(TABLES.PRODUCT_DRAFTS, {
+              where: `(job_id,eq,${job.id})`,
+              fields: 'Id',
+              limit: 1,
+            });
+            if (drafts.list.length > 0) job.draft_id = drafts.list[0].Id;
+          } catch { /* ignore */ }
+        }
+      }
 
       const summary = {
         total: enriched.length,
@@ -128,10 +143,25 @@ export async function GET() {
           ai_generated: false,
           price_calculated: false,
           draft_created: job.status === 'concluido',
+          draft_id: null as number | null,
           source: 'nocodb' as const,
         };
       })
     );
+
+    // Fill draft_id for completed jobs (NocoDB fallback)
+    for (const job of enriched) {
+      if (job.status === 'concluido') {
+        try {
+          const drafts = await list<ProductDraft>(TABLES.PRODUCT_DRAFTS, {
+            where: `(job_id,eq,${job.id})`,
+            fields: 'Id',
+            limit: 1,
+          });
+          if (drafts.list.length > 0) job.draft_id = drafts.list[0].Id;
+        } catch { /* ignore */ }
+      }
+    }
 
     const summary = {
       total: enriched.length,
