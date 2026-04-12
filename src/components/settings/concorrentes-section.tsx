@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Plus, X, Globe, ExternalLink } from 'lucide-react';
+import { Plus, X, Globe, ExternalLink, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import type { UserSettings } from '@/lib/types';
 
 interface ConcorrentesSectionProps {
@@ -18,9 +19,25 @@ interface SiteConcorrente {
   nome: string;
 }
 
+/**
+ * Auto-saves sites_concorrentes to the API whenever the list changes.
+ */
+async function autoSave(sites: SiteConcorrente[]) {
+  try {
+    await fetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sites_concorrentes: JSON.stringify(sites) }),
+    });
+  } catch {
+    // Will be saved when user clicks global Save button
+  }
+}
+
 export function ConcorrentesSection({ settings, update }: ConcorrentesSectionProps) {
   const [newUrl, setNewUrl] = useState('');
   const [newNome, setNewNome] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const sites: SiteConcorrente[] = (() => {
     try {
@@ -30,13 +47,11 @@ export function ConcorrentesSection({ settings, update }: ConcorrentesSectionPro
     }
   })();
 
-  const addSite = () => {
+  const addSite = async () => {
     let url = newUrl.trim();
     if (!url) return;
 
-    // Normalize URL
     if (!url.startsWith('http')) url = `https://${url}`;
-    // Extract domain for name if not provided
     let nome = newNome.trim();
     if (!nome) {
       try {
@@ -46,18 +61,28 @@ export function ConcorrentesSection({ settings, update }: ConcorrentesSectionPro
       }
     }
 
-    // Check duplicate
-    if (sites.some((s) => s.url === url)) return;
+    if (sites.some((s) => s.url === url)) {
+      toast.error('Site j\u00e1 adicionado');
+      return;
+    }
 
+    setSaving(true);
     const updated = [...sites, { url, nome }];
-    update('sites_concorrentes', JSON.stringify(updated));
+    const json = JSON.stringify(updated);
+    update('sites_concorrentes', json);
+    await autoSave(updated);
     setNewUrl('');
     setNewNome('');
+    setSaving(false);
+    toast.success(`${nome} adicionado`);
   };
 
-  const removeSite = (index: number) => {
+  const removeSite = async (index: number) => {
     const updated = sites.filter((_, i) => i !== index);
-    update('sites_concorrentes', JSON.stringify(updated));
+    const json = JSON.stringify(updated);
+    update('sites_concorrentes', json);
+    await autoSave(updated);
+    toast.success('Site removido');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -72,11 +97,11 @@ export function ConcorrentesSection({ settings, update }: ConcorrentesSectionPro
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Globe className="h-5 w-5" />
-          Sites Concorrentes e Refer\u00eancias
+          Sites Concorrentes e Refer{'\u00ea'}ncias
         </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Adicione sites de concorrentes ou refer\u00eancias para comparar pre\u00e7os e buscar informa\u00e7\u00f5es dos produtos.
-          O sistema vai buscar automaticamente nesses sites durante o processamento.
+          Adicione sites para comparar pre{'\u00e7'}os e buscar informa{'\u00e7\u00f5'}es dos produtos.
+          O sistema busca automaticamente nesses sites durante o processamento.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -101,8 +126,8 @@ export function ConcorrentesSection({ settings, update }: ConcorrentesSectionPro
             />
           </div>
           <div className="flex items-end">
-            <Button onClick={addSite} disabled={!newUrl.trim()} size="sm" className="w-full sm:w-auto">
-              <Plus className="mr-1 h-4 w-4" />
+            <Button onClick={addSite} disabled={!newUrl.trim() || saving} size="sm" className="w-full sm:w-auto">
+              {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}
               Adicionar
             </Button>
           </div>
@@ -143,7 +168,7 @@ export function ConcorrentesSection({ settings, update }: ConcorrentesSectionPro
           </div>
         ) : (
           <p className="text-sm text-muted-foreground text-center py-4">
-            Nenhum site adicionado. Exemplos: kalunga.com.br, papelariaunicornio.com.br, shopee.com.br
+            Nenhum site adicionado. Exemplos: kalunga.com.br, grafittiartes.com.br
           </p>
         )}
       </CardContent>
