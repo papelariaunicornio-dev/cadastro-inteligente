@@ -111,6 +111,21 @@ export async function createTinyProduct(
     } catch { /* ignore */ }
   }
 
+  // Images as anexos (selected images only)
+  if (draft.imagens) {
+    try {
+      const imgs = JSON.parse(draft.imagens);
+      const selected = imgs.filter((img: { selecionada: boolean; url: string }) =>
+        img.selecionada && img.url.startsWith('http')
+      );
+      if (selected.length > 0) {
+        produto.anexos = selected.map((img: { url: string }) => ({
+          anexo: img.url,
+        }));
+      }
+    } catch { /* ignore */ }
+  }
+
   // Variations
   if (variacoes.length > 0) {
     produto.variacoes = variacoes.map((v, i) => ({
