@@ -62,6 +62,7 @@ export const UserSettingsUpdateSchema = z.object({
   instrucoes_descricao: z.string().max(2000).nullable().optional(),
   prefixo_sku: z.string().max(10).optional(),
   formato_sku: z.string().max(100).nullable().optional(),
+  sites_concorrentes: z.string().nullable().optional(), // JSON array
 });
 
 // ==========================================

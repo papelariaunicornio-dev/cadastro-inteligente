@@ -72,10 +72,10 @@ export function ConcorrentesSection({ settings, update }: ConcorrentesSectionPro
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Globe className="h-5 w-5" />
-          Sites Concorrentes e Referencias
+          Sites Concorrentes e Refer\u00eancias
         </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Adicione sites de concorrentes ou referencias para comparar precos e buscar informacoes dos produtos.
+          Adicione sites de concorrentes ou refer\u00eancias para comparar pre\u00e7os e buscar informa\u00e7\u00f5es dos produtos.
           O sistema vai buscar automaticamente nesses sites durante o processamento.
         </p>
       </CardHeader>
