@@ -74,8 +74,13 @@ export async function generateProductDraft(
   userPrompt += `- Código do fornecedor: ${primaryItem.codigo}\n`;
   userPrompt += `- EAN: ${primaryItem.ean || 'N/A'}\n`;
   userPrompt += `- NCM: ${primaryItem.ncm}\n`;
-  userPrompt += `- Marca: ${brand}\n`;
+  userPrompt += `- Fornecedor (distribuidora, NÃO é necessariamente a marca): ${brand}\n`;
   userPrompt += `- Tipo de cadastro: ${tipo}\n`;
+  userPrompt += `\nIMPORTANTE sobre a MARCA: O fornecedor/distribuidora NÃO é necessariamente a marca do produto. `;
+  userPrompt += `Identifique a marca REAL do produto analisando: 1) o nome do produto na NF (geralmente contém a marca), `;
+  userPrompt += `2) os dados coletados na web (páginas da marca, e-commerces). `;
+  userPrompt += `Exemplos: fornecedor "Sertic" vende marcas CIS, Uni-ball, Molin; fornecedor "IMEX" vende várias marcas; `;
+  userPrompt += `fornecedor "Universo Criativo" vende marca Cíceros. A marca correta geralmente aparece no título do produto.\n`;
 
   if (tipo === 'multiplos_itens' && items.length > 1) {
     userPrompt += `\n### Itens do Grupo (cada um será uma variação):\n`;

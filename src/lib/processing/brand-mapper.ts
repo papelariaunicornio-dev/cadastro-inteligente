@@ -1,33 +1,38 @@
 /**
- * Maps supplier CNPJ to brand name.
- * Expands over time as more suppliers are imported.
+ * Maps supplier CNPJ to supplier/distributor name.
+ * NOTE: The supplier is NOT necessarily the product brand.
+ * E.g., IMEX distributes many brands, Sertic distributes CIS/Uni-ball/Molin.
+ * The actual brand is identified by the AI from the product name + scraped data.
+ *
+ * This mapping is used for:
+ * - Search queries (helps find the right products)
+ * - URL classification (identify brand websites)
+ * - Fallback when AI can't determine the brand
  */
 
-const CNPJ_TO_BRAND: Record<string, string> = {
+const CNPJ_TO_SUPPLIER: Record<string, string> = {
   '01148183000150': 'Molin',
-  '60840691000163': 'CIS',
+  '60840691000163': 'CIS/Sertic',
   '61611141000135': 'Pentel',
   '24878509000108': 'Artistik',
   '49870081000170': 'Ciceros',
 };
 
 /**
- * Try to identify brand from supplier CNPJ or name.
+ * Identify supplier/distributor from CNPJ or name.
+ * Used as a search hint, NOT as the definitive brand.
  */
 export function identifyBrand(
   cnpj: string,
   supplierName: string,
   supplierFantasia?: string
 ): string {
-  // Clean CNPJ (remove formatting)
   const cleanCnpj = cnpj.replace(/\D/g, '');
 
-  // Try exact CNPJ match
-  if (CNPJ_TO_BRAND[cleanCnpj]) {
-    return CNPJ_TO_BRAND[cleanCnpj];
+  if (CNPJ_TO_SUPPLIER[cleanCnpj]) {
+    return CNPJ_TO_SUPPLIER[cleanCnpj];
   }
 
-  // Try fantasia name
   if (supplierFantasia) {
     const fantasia = supplierFantasia.trim();
     if (fantasia.length > 0 && fantasia.length < 30) {
@@ -35,18 +40,16 @@ export function identifyBrand(
     }
   }
 
-  // Extract first meaningful word from supplier name
   const name = supplierName
     .replace(/\b(LTDA|EPP|ME|EIRELI|SA|S\.A\.|S\/A|COMERCIO|COMERCIAL|IMPORTACAO|EXPORTACAO|INDUSTRIA|DISTRIBUIDORA|COML)\b/gi, '')
     .trim();
 
   const firstWord = name.split(/\s+/)[0];
   if (firstWord && firstWord.length >= 3) {
-    // Title case
     return firstWord.charAt(0).toUpperCase() + firstWord.slice(1).toLowerCase();
   }
 
-  return 'Marca Desconhecida';
+  return 'Desconhecido';
 }
 
 /**
@@ -64,4 +67,8 @@ export const BRAND_DOMAINS: Record<string, string> = {
   'stabilo.com.br': 'Stabilo',
   'tilibra.com.br': 'Tilibra',
   'foroni.com.br': 'Foroni',
+  'papermate.com.br': 'Paper Mate',
+  'staedtler.com.br': 'Staedtler',
+  'compactor.com.br': 'Compactor',
+  'acrilex.com.br': 'Acrilex',
 };
