@@ -130,6 +130,11 @@ function isSmallOrIrrelevant(url: string): boolean {
     'seller', 'brand/t_', // brand logos in CDNs
     '/shared/', // shared UI elements
     'line.jpg', // decorative lines
+    'stamp_', 'ssl', 'encrypt', 'secure', 'verified',
+    'social', 'facebook', 'instagram', 'twitter', 'youtube',
+    'whatsapp', 'newsletter', 'subscribe', 'footer', 'header',
+    'breadcrumb', 'navigation', 'search-', 'close-', 'zoom',
+    '/static/img/struct/', // store framework UI elements
   ];
 
   for (const word of blockedWords) {
@@ -176,6 +181,13 @@ function isSmallOrIrrelevant(url: string): boolean {
   if (amazonUlMatch) {
     const size = parseInt(amazonUlMatch[1], 10);
     if (size < MIN_DIMENSION) return true;
+  }
+
+  // === AMAZON UI ICONS (no size suffix = likely small icon) ===
+  // Pattern: /images/I/SHORTID.png (11 chars, no size suffix)
+  const amazonIconMatch = lower.match(/\/images\/i\/([a-z0-9]+)\.(png|jpg)$/i);
+  if (amazonIconMatch && amazonIconMatch[1].length <= 14 && !lower.includes('_ac_')) {
+    return true; // Short Amazon ID without size = UI icon
   }
 
   // === SMALL PATTERNS ===
