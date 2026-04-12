@@ -19,6 +19,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import type { ProductDraft } from '@/lib/types';
 import { ProcessingJobs } from '@/components/products/processing-jobs';
 import { toast } from 'sonner';
+import { useShiftSelect } from '@/hooks/use-shift-select';
 
 interface Counts {
   processando: number;
@@ -39,7 +40,6 @@ export default function ProductsPage() {
   const [counts, setCounts] = useState<Counts>({ processando: 0, aguardando: 0, aprovados: 0 });
   const [products, setProducts] = useState<ProductDraft[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -66,17 +66,7 @@ export default function ProductsPage() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const toggleSelect = (id: number) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const selectAll = () => setSelectedIds(new Set(products.map((p) => p.Id)));
-  const clearSelection = () => setSelectedIds(new Set());
+  const { selectedIds, toggleSelect, selectAll, clearSelection } = useShiftSelect(products.map((p) => p.Id));
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
@@ -94,7 +84,7 @@ export default function ProductsPage() {
       } catch { /* continue */ }
     }
     toast.success(`${count} produto(s) descartado(s)`);
-    setSelectedIds(new Set());
+    clearSelection();
     fetchData();
     setBulkDeleting(false);
   };
@@ -229,7 +219,10 @@ export default function ProductsPage() {
                     <TableCell data-checkbox>
                       <Checkbox
                         checked={selectedIds.has(product.Id)}
-                        onCheckedChange={() => toggleSelect(product.Id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSelect(product.Id, e.shiftKey);
+                        }}
                       />
                     </TableCell>
                     <TableCell>

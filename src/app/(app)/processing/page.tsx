@@ -28,6 +28,7 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { LiveTimer } from '@/components/products/live-timer';
+import { useShiftSelect } from '@/hooks/use-shift-select';
 
 // ==========================================
 // Types
@@ -178,7 +179,7 @@ function JobCard({
   job: DetailedJob;
   onRetry: (id: number) => void;
   selected: boolean;
-  onToggleSelect: (id: number) => void;
+  onToggleSelect: (id: number, shiftKey: boolean) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const config = STATUS_CONFIG[job.status] || STATUS_CONFIG.pendente;
@@ -208,8 +209,10 @@ function JobCard({
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <Checkbox
             checked={selected}
-            onCheckedChange={() => onToggleSelect(job.id)}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelect(job.id, e.shiftKey);
+            }}
             className="shrink-0"
           />
           {expanded ? (
@@ -424,9 +427,12 @@ export default function ProcessingPage() {
   const [loading, setLoading] = useState(true);
   const [resetting, setResetting] = useState(false);
   const [filter, setFilter] = useState<string>('all');
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkRetrying, setBulkRetrying] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const filteredJobs = filter === 'all'
+    ? jobs
+    : jobs.filter((j) => j.status === filter);
 
   const fetchData = useCallback(async () => {
     try {
@@ -471,21 +477,7 @@ export default function ProcessingPage() {
     }
   };
 
-  const toggleSelect = (id: number) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const selectAllFiltered = () => {
-    const ids = filteredJobs.map((j) => j.id);
-    setSelectedIds(new Set(ids));
-  };
-
-  const clearSelection = () => setSelectedIds(new Set());
+  const { selectedIds, toggleSelect, selectAll: selectAllFiltered, clearSelection } = useShiftSelect(filteredJobs.map((j) => j.id));
 
   const handleBulkRetry = async () => {
     if (selectedIds.size === 0) return;
@@ -498,7 +490,7 @@ export default function ProcessingPage() {
       } catch { /* continue */ }
     }
     toast.success(`${count} job(s) reenviado(s) para processamento`);
-    setSelectedIds(new Set());
+    clearSelection();
     fetchData();
     setBulkRetrying(false);
   };
@@ -515,14 +507,10 @@ export default function ProcessingPage() {
       } catch { /* continue */ }
     }
     toast.success(`${count} job(s) deletado(s)`);
-    setSelectedIds(new Set());
+    clearSelection();
     fetchData();
     setBulkDeleting(false);
   };
-
-  const filteredJobs = filter === 'all'
-    ? jobs
-    : jobs.filter((j) => j.status === filter);
 
   const hasStuckOrPending = jobs.some(
     (j) => j.status === 'pendente' || (!['concluido', 'erro'].includes(j.status) && j.duration_seconds > 300)
