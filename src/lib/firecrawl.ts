@@ -227,16 +227,30 @@ export async function searchImages(
     }
   }
 
-  // 2. Use Firecrawl search with image-focused query as supplement
+  // 2. If not enough images, scrape top search results to extract image URLs
   if (results.length < 5) {
     try {
-      const searchResults = await search(`${query} produto imagem`, 5);
-      for (const r of searchResults) {
-        if (!seenUrls.has(r.url)) {
-          seenUrls.add(r.url);
+      const searchResults = await search(`${query}`, 3);
+      for (const r of searchResults.slice(0, 2)) {
+        const scraped = await scrape(r.url);
+        if (!scraped?.markdown) continue;
+
+        // Extract image URLs from markdown
+        const imgMatches = scraped.markdown.match(
+          /https?:\/\/[^\s)"]+\.(?:jpg|jpeg|png|webp)(?:\?[^\s)"]*)?/gi
+        ) || [];
+
+        for (const imgUrl of imgMatches) {
+          if (seenUrls.has(imgUrl)) continue;
+          // Skip small/irrelevant images
+          if (/icon|logo|favicon|sprite|banner|selo|pixel|tracking/i.test(imgUrl)) continue;
+          const sizeMatch = imgUrl.match(/(\d+)x(\d+)/);
+          if (sizeMatch && (parseInt(sizeMatch[1]) < 200 || parseInt(sizeMatch[2]) < 200)) continue;
+
+          seenUrls.add(imgUrl);
           results.push({
-            url: r.url,
-            source: 'Firecrawl Search',
+            url: imgUrl,
+            source: r.url,
             title: r.title,
           });
         }
