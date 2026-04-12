@@ -243,9 +243,16 @@ export async function searchImages(
         for (const imgUrl of imgMatches) {
           if (seenUrls.has(imgUrl)) continue;
           // Skip small/irrelevant images
-          if (/icon|logo|favicon|sprite|banner|selo|pixel|tracking/i.test(imgUrl)) continue;
+          // Skip non-product images
+          if (/icon|logo|favicon|sprite|banner|selo|pixel|tracking|widget|barcode|seller|shared|button|step-/i.test(imgUrl)) continue;
+          // Skip small images by NxN pattern
           const sizeMatch = imgUrl.match(/(\d+)x(\d+)/);
           if (sizeMatch && (parseInt(sizeMatch[1]) < 300 || parseInt(sizeMatch[2]) < 300)) continue;
+          // Skip Amazon small images (_SS115_, _US40_, _SY88_, etc.)
+          const amzSize = imgUrl.match(/[._](SS|US|SY|SX|SL|UL)(\d+)/i);
+          if (amzSize && parseInt(amzSize[2]) < 300) continue;
+          const amzAc = imgUrl.match(/_AC_[A-Z]{2}(\d+)/i);
+          if (amzAc && parseInt(amzAc[1]) < 300) continue;
 
           seenUrls.add(imgUrl);
           results.push({
