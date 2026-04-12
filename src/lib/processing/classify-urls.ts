@@ -48,7 +48,8 @@ function extractDomain(url: string): string {
  */
 export function classifyUrls(
   urls: string[],
-  brandName?: string
+  brandName?: string,
+  competitorDomains?: string[]
 ): UrlClassification {
   const result: UrlClassification = {
     marca: [],
@@ -83,6 +84,12 @@ export function classifyUrls(
 
     // Check known e-commerce
     if (ECOMMERCE_DOMAINS.has(domain)) {
+      result.ecommerce.push(url);
+      continue;
+    }
+
+    // Check competitor/reference sites (treated as e-commerce)
+    if (competitorDomains?.some((cd) => domain.includes(cd) || cd.includes(domain))) {
       result.ecommerce.push(url);
       continue;
     }

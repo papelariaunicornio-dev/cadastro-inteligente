@@ -219,6 +219,7 @@ export interface UserSettings {
   prefixo_sku: string;
   formato_sku: string | null;
   sequencia_sku: number;
+  sites_concorrentes: string | null; // JSON array of {url, nome}
   tiny_token_encrypted: string | null;
   shopify_url: string | null;
   shopify_token_encrypted: string | null;

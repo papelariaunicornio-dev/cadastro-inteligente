@@ -11,6 +11,7 @@ import { Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { UserSettings } from '@/lib/types';
 import { IntegrationStatus } from '@/components/settings/integration-status';
+import { ConcorrentesSection } from '@/components/settings/concorrentes-section';
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Partial<UserSettings>>({});
@@ -36,7 +37,7 @@ export default function SettingsPage() {
         comissao_ecommerce, comissao_ml, comissao_shopee,
         frete_medio_unidade, taxas_fixas,
         template_titulo, tamanho_max_titulo, instrucoes_descricao,
-        prefixo_sku, formato_sku,
+        prefixo_sku, formato_sku, sites_concorrentes,
       } = settings;
 
       await fetch('/api/settings', {
@@ -48,7 +49,7 @@ export default function SettingsPage() {
           comissao_ecommerce, comissao_ml, comissao_shopee,
           frete_medio_unidade, taxas_fixas,
           template_titulo, tamanho_max_titulo, instrucoes_descricao,
-          prefixo_sku, formato_sku,
+          prefixo_sku, formato_sku, sites_concorrentes,
         }),
       });
       toast.success('Configurações salvas');
@@ -199,6 +200,9 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Sites Concorrentes */}
+      <ConcorrentesSection settings={settings} update={update} />
 
       {/* Integrações — tokens via env vars, não no banco */}
       <Card>

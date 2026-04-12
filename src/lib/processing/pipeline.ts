@@ -130,6 +130,10 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
           fornecedorCnpj: nfImport!.fornecedor_cnpj,
           fornecedorNome: nfImport!.fornecedor_nome,
           fornecedorFantasia: nfImport!.fornecedor_fantasia,
+          sitesConcorrentes: (() => {
+            try { return JSON.parse(settings?.sites_concorrentes || '[]'); }
+            catch { return []; }
+          })(),
         }),
         STEP_TIMEOUT_MS,
         'search'

@@ -1,5 +1,6 @@
 /**
  * Search step: find web pages about a product using Firecrawl.
+ * Includes competitor/reference sites from user settings.
  */
 
 import { search, type FirecrawlSearchResult } from '@/lib/firecrawl';
@@ -12,6 +13,7 @@ interface SearchContext {
   fornecedorCnpj: string;
   fornecedorNome: string;
   fornecedorFantasia?: string;
+  sitesConcorrentes?: { url: string; nome: string }[];
 }
 
 export interface SearchResult {
@@ -19,7 +21,7 @@ export interface SearchResult {
   allUrls: string[];
   classified: UrlClassification;
   rawResults: FirecrawlSearchResult[];
-  firecrawlCredits: number; // Number of search API calls made
+  firecrawlCredits: number;
 }
 
 /**
@@ -36,29 +38,44 @@ export async function searchProduct(ctx: SearchContext): Promise<SearchResult> {
   // Build search queries
   const queries: string[] = [];
 
+  // Clean product name
+  const cleanName = primaryItem.descricao
+    .replace(/\bCX\s*C\/\d+\b/gi, '')
+    .replace(/\bBL\s*C\/\d+\b/gi, '')
+    .replace(/\bDP\s*C?\/?\d*\b/gi, '')
+    .replace(/\b(UN|PC|CR|ES)\b/gi, '')
+    .trim();
+
   // 1. Search by EAN (most specific)
   if (primaryItem.ean) {
     queries.push(`"${primaryItem.ean}"`);
   }
 
   // 2. Search by brand + product name
-  const cleanName = primaryItem.descricao
-    .replace(/\bCX\s*C\/\d+\b/gi, '')  // Remove "CX C/12"
-    .replace(/\bBL\s*C\/\d+\b/gi, '')  // Remove "BL C/1"
-    .replace(/\bDP\s*C?\/?\d*\b/gi, '') // Remove "DP 12"
-    .replace(/\b(UN|PC|CR|ES)\b/gi, '') // Remove unit codes
-    .trim();
   queries.push(`${brand} ${cleanName}`);
 
-  // 3. If we have multiple items (group), search the common name
+  // 3. If multiple items (group), search the common name
   if (ctx.items.length > 1) {
-    // Find common prefix among item descriptions
-    const commonName = findCommonPrefix(
-      ctx.items.map((i) => i.descricao)
-    );
+    const commonName = findCommonPrefix(ctx.items.map((i) => i.descricao));
     if (commonName.length > 5) {
       queries.push(`${brand} ${commonName}`);
     }
+  }
+
+  // 4. Search specifically on competitor/reference sites
+  if (ctx.sitesConcorrentes && ctx.sitesConcorrentes.length > 0) {
+    const siteFilter = ctx.sitesConcorrentes
+      .map((s) => {
+        try {
+          return new URL(s.url).hostname.replace('www.', '');
+        } catch {
+          return s.url.replace(/^https?:\/\//, '').replace('www.', '').split('/')[0];
+        }
+      })
+      .map((domain) => `site:${domain}`)
+      .join(' OR ');
+
+    queries.push(`${cleanName} ${siteFilter}`);
   }
 
   // Execute searches (sequential to respect rate limits)
@@ -73,25 +90,31 @@ export async function searchProduct(ctx: SearchContext): Promise<SearchResult> {
         allResults.push(r);
       }
     }
-    // Small delay between searches
     await new Promise((r) => setTimeout(r, 500));
   }
 
   const allUrls = allResults.map((r) => r.url);
-  const classified = classifyUrls(allUrls, brand);
+
+  // Add competitor domains to classify-urls known lists
+  const competitorDomains = (ctx.sitesConcorrentes || []).map((s) => {
+    try {
+      return new URL(s.url).hostname.replace('www.', '');
+    } catch {
+      return s.url.replace(/^https?:\/\//, '').replace('www.', '').split('/')[0];
+    }
+  });
+
+  const classified = classifyUrls(allUrls, brand, competitorDomains);
 
   return {
     brand,
     allUrls,
     classified,
     rawResults: allResults,
-    firecrawlCredits: queries.length, // Each search = 1 credit
+    firecrawlCredits: queries.length,
   };
 }
 
-/**
- * Find common prefix among multiple strings.
- */
 function findCommonPrefix(strings: string[]): string {
   if (strings.length === 0) return '';
   if (strings.length === 1) return strings[0];
