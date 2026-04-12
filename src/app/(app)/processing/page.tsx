@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { LiveTimer } from '@/components/products/live-timer';
 
 // ==========================================
 // Types
@@ -243,15 +244,19 @@ function JobCard({
           <StepProgress currentStatus={job.status} />
 
           <div className="text-right shrink-0 ml-2">
-            <p className="text-xs font-mono text-muted-foreground">
-              {formatDuration(job.duration_seconds)}
+            <p className="text-xs text-muted-foreground">
+              {isActive ? (
+                <span className="text-[#FFA646] font-semibold"><LiveTimer startTime={job.created_at} /></span>
+              ) : (
+                <span className="font-mono">{formatDuration(job.duration_seconds)}</span>
+              )}
             </p>
             <p className="text-[10px] text-muted-foreground">
               {formatTime(job.updated_at)}
             </p>
           </div>
 
-          {job.status === 'erro' && (
+          {(job.status === 'erro' || job.status === 'concluido') && (
             <Button
               variant="outline"
               size="sm"
@@ -262,7 +267,7 @@ function JobCard({
               }}
             >
               <RotateCcw className="mr-1 h-3 w-3" />
-              Retry
+              Reprocessar
             </Button>
           )}
         </div>

@@ -21,6 +21,7 @@ import {
   ImageOff,
   Plus,
   X,
+  RotateCcw,
 } from 'lucide-react';
 import type {
   ProductDraft,
@@ -77,6 +78,9 @@ export default function ProductEditPage({
   const [imageResolutions, setImageResolutions] = useState<Map<number, { w: number; h: number }>>(new Map());
   const [variacoes, setVariacoes] = useState<ProductVariation[]>([]);
   const [tipoVariacao, setTipoVariacao] = useState('');
+
+  // Description view mode
+  const [descViewMode, setDescViewMode] = useState<'rendered' | 'html'>('rendered');
 
   // Tiny categories
   const [tinyCategories, setTinyCategories] = useState<{ id: string; nome: string; path: string }[]>([]);
@@ -352,6 +356,28 @@ export default function ProductEditPage({
     }
   };
 
+  const handleReprocess = async () => {
+    if (!product?.job_id) return;
+    if (!confirm('Reprocessar este produto? O pre-cadastro atual sera substituido.')) return;
+    setSaving(true);
+    try {
+      // Delete current draft
+      await fetch(`/api/products/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'descartado' }),
+      });
+      // Retry the job
+      await fetch(`/api/jobs/${product.job_id}/retry`, { method: 'POST' });
+      toast.success('Reprocessando produto...');
+      router.push('/processing');
+    } catch {
+      toast.error('Erro ao reprocessar');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDiscard = async () => {
     if (!confirm('Tem certeza que deseja descartar este produto?')) return;
     try {
@@ -423,8 +449,33 @@ export default function ProductEditPage({
             <Textarea value={descricaoCurta} onChange={(e) => setDescricaoCurta(e.target.value)} disabled={!isEditable} rows={2} maxLength={300} />
           </div>
           <div className="space-y-2">
-            <Label>Descrição completa (HTML)</Label>
-            <Textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} disabled={!isEditable} rows={8} className="font-mono text-sm" />
+            <div className="flex items-center justify-between">
+              <Label>Descricao completa</Label>
+              <div className="flex rounded-md border text-xs overflow-hidden">
+                <button
+                  type="button"
+                  className={cn('px-3 py-1 transition-colors', descViewMode === 'rendered' ? 'bg-primary text-white' : 'hover:bg-muted')}
+                  onClick={() => setDescViewMode('rendered')}
+                >
+                  Visualizar
+                </button>
+                <button
+                  type="button"
+                  className={cn('px-3 py-1 transition-colors border-l', descViewMode === 'html' ? 'bg-primary text-white' : 'hover:bg-muted')}
+                  onClick={() => setDescViewMode('html')}
+                >
+                  HTML
+                </button>
+              </div>
+            </div>
+            {descViewMode === 'html' ? (
+              <Textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} disabled={!isEditable} rows={8} className="font-mono text-sm" />
+            ) : (
+              <div
+                className="min-h-[200px] rounded-md border p-4 prose prose-sm max-w-none bg-white"
+                dangerouslySetInnerHTML={{ __html: descricao || '<p style="color:#999">Sem descricao</p>' }}
+              />
+            )}
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-2">
@@ -961,10 +1012,16 @@ export default function ProductEditPage({
           <Separator />
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex gap-2 w-full sm:w-auto">
+            <Button variant="outline" size="sm" onClick={handleReprocess} disabled={saving} className="w-full sm:w-auto">
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Reprocessar
+            </Button>
             <Button variant="destructive" size="sm" onClick={handleDiscard} className="w-full sm:w-auto">
               <Trash2 className="mr-2 h-4 w-4" />
               Descartar
             </Button>
+            </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
               <Button variant="outline" onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}

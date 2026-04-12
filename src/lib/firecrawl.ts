@@ -147,7 +147,7 @@ export async function scrape(
   url: string
 ): Promise<FirecrawlScrapeData | null> {
   try {
-    const result = await firecrawlRequest<ScrapeResponse>('/v1/scrape', {
+    const result = await firecrawlRequest<ScrapeResponse>('/scrape', {
       url,
       formats: ['markdown'],
     });

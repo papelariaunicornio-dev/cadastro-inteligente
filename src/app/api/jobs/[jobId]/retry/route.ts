@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { get, update } from '@/lib/nocodb';
+import { get, update, list, remove } from '@/lib/nocodb';
 import { TABLES } from '@/lib/nocodb-tables';
-import type { ProcessingJob } from '@/lib/types';
+import type { ProcessingJob, ProductDraft } from '@/lib/types';
 import { enqueueJob } from '@/lib/queue';
 
 export async function POST(
@@ -13,7 +13,24 @@ export async function POST(
 
   try {
     const job = await get<ProcessingJob>(TABLES.PROCESSING_JOBS, id);
-    const itemIds: number[] = JSON.parse(job.item_ids || '[]');
+
+    // Parse itemIds — handle both array and search_term format
+    let itemIds: number[] = [];
+    try {
+      const parsed = JSON.parse(job.item_ids || '[]');
+      if (Array.isArray(parsed)) itemIds = parsed;
+    } catch { /* search job — itemIds stay empty */ }
+
+    // Delete existing draft if reprocessing a completed job
+    if (job.status === 'concluido') {
+      const drafts = await list<ProductDraft>(TABLES.PRODUCT_DRAFTS, {
+        where: `(job_id,eq,${id})`,
+        limit: 10,
+      });
+      for (const draft of drafts.list) {
+        await remove(TABLES.PRODUCT_DRAFTS, draft.Id);
+      }
+    }
 
     // Reset audit log
     await update(TABLES.PROCESSING_JOBS, id, {
@@ -33,7 +50,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, message: `Job ${jobId} re-enqueued` });
   } catch (error) {
-    console.error('Retry error:', error);
+    console.error('Retry error:', error instanceof Error ? error.message : error);
     return NextResponse.json({ error: 'Erro ao reprocessar' }, { status: 500 });
   }
 }
