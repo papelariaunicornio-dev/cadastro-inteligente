@@ -41,18 +41,43 @@ interface GenerateContext {
   settings: Partial<UserSettings> | null;
 }
 
-const SYSTEM_PROMPT = `Você é um especialista em cadastro de produtos para e-commerce brasileiro.
-Sua tarefa é gerar um cadastro completo e profissional para um produto, baseado nos dados fornecidos.
+const SYSTEM_PROMPT = `Você é um copywriter especialista em e-commerce brasileiro e um expert em cadastro de produtos.
+Sua tarefa é gerar um cadastro COMPLETO e VENDEDOR para um produto.
 
-REGRAS:
+REGRAS GERAIS:
 1. O título deve ser otimizado para SEO, claro e descritivo
-2. A descrição deve ser em HTML válido, rica e persuasiva
-3. A descrição curta deve ter no máximo 300 caracteres
-4. Tags devem ser palavras-chave relevantes para busca
-5. Se o produto tem variações, identifique o tipo (Cor, Tamanho, etc.)
-6. Para SKU, use o formato: PREFIXO-MARCA3CHARS-SEQUENCIAL (ex: PU-PEN-001)
-7. Responda SEMPRE em JSON válido conforme o schema solicitado
-8. Use português brasileiro formal mas acessível`;
+2. Tags devem ser palavras-chave relevantes para busca
+3. Se o produto tem variações, identifique o tipo (Cor, Tamanho, etc.)
+4. Responda SEMPRE em JSON válido conforme o schema solicitado
+
+REGRAS DA DESCRIÇÃO (MUITO IMPORTANTE):
+A descrição é o coração do cadastro. Ela deve:
+
+1. CONECTAR COM O PÚBLICO-ALVO: Use linguagem que ressoe com quem vai comprar.
+   Se o público são estudantes, fale de praticidade no dia a dia escolar.
+   Se são profissionais, fale de produtividade e confiabilidade.
+   Se são artistas, fale de criatividade e precisão.
+
+2. TOM DE VOZ: Siga EXATAMENTE o tom de voz configurado pela loja.
+   Se é "jovem e descontraído", use linguagem leve e próxima.
+   Se é "profissional", seja direto e técnico.
+   Se é "acolhedor", seja caloroso e use empatia.
+
+3. ESTRUTURA DA DESCRIÇÃO (HTML):
+   - Parágrafo de abertura ENVOLVENTE: conecte o produto com uma necessidade ou desejo do público
+   - Benefícios principais em bullets (não features técnicas, mas BENEFÍCIOS para o usuário)
+   - Especificações técnicas em tabela ou lista organizada
+   - Conteúdo da embalagem (o que vem na caixa)
+   - Parágrafo de fechamento com call-to-action sutil
+
+4. NÃO SEJA GENÉRICO: Evite frases como "produto de qualidade" ou "excelente custo-benefício".
+   Seja ESPECÍFICO sobre por que esse produto é bom.
+
+5. DIFERENCIAIS DA LOJA: Se a loja tem diferenciais (entrega rápida, curadoria, atendimento),
+   mencione sutilmente no texto quando fizer sentido.
+
+6. Use HTML válido com tags: p, h3, ul, li, strong, table, tr, td
+7. Mínimo 300 caracteres, máximo 2000 caracteres`;
 
 export async function generateProductDraft(
   ctx: GenerateContext
@@ -61,12 +86,25 @@ export async function generateProductDraft(
   const primaryItem = items[0];
 
   // Build user prompt
-  let userPrompt = `## Contexto da Loja\n`;
+  let userPrompt = `## Contexto da Loja (USE ISSO PARA DEFINIR O TOM DA DESCRIÇÃO)\n`;
   if (settings) {
-    userPrompt += `- Nome: ${settings.nome_loja || 'Loja Online'}\n`;
+    userPrompt += `- Nome da loja: ${settings.nome_loja || 'Loja Online'}\n`;
     userPrompt += `- Segmento: ${settings.segmento || 'Papelaria e escritório'}\n`;
-    userPrompt += `- Público-alvo: ${settings.publico_alvo || 'Estudantes e profissionais'}\n`;
-    userPrompt += `- Tom de voz: ${settings.tom_de_voz || 'Profissional e acessível'}\n`;
+    if (settings.publico_alvo) {
+      userPrompt += `- PÚBLICO-ALVO: ${settings.publico_alvo}\n`;
+      userPrompt += `  (Escreva a descrição pensando NESSAS pessoas. Use linguagem que elas entendam e se identifiquem)\n`;
+    }
+    if (settings.tom_de_voz) {
+      userPrompt += `- TOM DE VOZ: ${settings.tom_de_voz}\n`;
+      userPrompt += `  (SIGA ESSE TOM em toda a descrição. É a personalidade da marca falando)\n`;
+    }
+    if (settings.diferenciais) {
+      userPrompt += `- DIFERENCIAIS DA LOJA: ${settings.diferenciais}\n`;
+      userPrompt += `  (Mencione esses diferenciais sutilmente na descrição quando fizer sentido)\n`;
+    }
+    if (settings.instrucoes_descricao) {
+      userPrompt += `- INSTRUÇÕES EXTRAS DO LOJISTA: ${settings.instrucoes_descricao}\n`;
+    }
   }
 
   userPrompt += `\n## Produto a Cadastrar\n`;

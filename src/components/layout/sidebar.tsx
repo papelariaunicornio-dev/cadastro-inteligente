@@ -24,7 +24,7 @@ const navItems = [
   { href: '/search', label: 'Pesquisa', icon: Search },
   { href: '/processing', label: 'Processamento', icon: Activity },
   { href: '/products', label: 'Produtos', icon: Package },
-  { href: '/settings', label: 'Configuracoes', icon: Settings },
+  { href: '/settings', label: 'Configura\u00e7\u00f5es', icon: Settings },
 ];
 
 export function Sidebar() {
@@ -69,7 +69,7 @@ export function Sidebar() {
             Skuni
           </h1>
           <p className="text-[10px] text-sidebar-foreground/50">
-            Cadastro + Preco inteligente
+            Cadastro + Pre\u00e7o inteligente
           </p>
         </div>
         {/* Close button - mobile only */}
