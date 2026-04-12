@@ -47,6 +47,9 @@ export async function GET() {
             erro_mensagem: qj.progress.error || null,
             message: qj.progress.message || null,
             created_at: new Date(qj.timestamp).toISOString(),
+            updated_at: qj.duration && qj.timestamp
+              ? new Date(qj.timestamp + qj.duration).toISOString()
+              : new Date(qj.timestamp).toISOString(),
             duration_seconds: Math.round(qj.duration / 1000),
             nf: nfInfo,
             items: itemDescriptions,

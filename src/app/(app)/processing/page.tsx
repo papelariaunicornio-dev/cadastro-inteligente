@@ -105,8 +105,11 @@ function formatDuration(seconds: number): string {
   return `${min}m ${sec}s`;
 }
 
-function formatTime(isoString: string): string {
-  return new Date(isoString).toLocaleString('pt-BR', {
+function formatTime(isoString: string | null | undefined): string {
+  if (!isoString) return '—';
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
     hour: '2-digit',
