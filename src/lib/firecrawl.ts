@@ -1,10 +1,9 @@
 /**
  * Web search and scraping client.
  *
- * Search: Firecrawl cloud /search endpoint (reliable, uses credits)
- *         Falls back to SearXNG self-hosted if available
- * Scrape: Firecrawl cloud /scrape endpoint
- * Images: Firecrawl cloud /search with image-focused queries
+ * Search: Firecrawl cloud /search (reliable)
+ * Scrape: Firecrawl cloud /scrape
+ * Images: SearXNG local (same docker network) → Bing Images fallback
  */
 
 const FIRECRAWL_CLOUD = 'https://api.firecrawl.dev/v1';
@@ -79,15 +78,11 @@ interface FirecrawlSearchResponse {
   data: FirecrawlSearchResult[];
 }
 
-/**
- * Search using Firecrawl cloud API.
- * Falls back to SearXNG if Firecrawl search fails.
- */
 export async function search(
   query: string,
   limit = 5
 ): Promise<FirecrawlSearchResult[]> {
-  // Try Firecrawl cloud search first (most reliable)
+  // Firecrawl cloud search
   try {
     const result = await firecrawlRequest<FirecrawlSearchResponse>('/search', {
       query,
@@ -97,10 +92,10 @@ export async function search(
       return result.data;
     }
   } catch (error) {
-    console.warn(`Firecrawl search failed, trying SearXNG:`, error instanceof Error ? error.message : error);
+    console.warn('Firecrawl search failed:', error instanceof Error ? error.message : error);
   }
 
-  // Fallback: SearXNG self-hosted
+  // Fallback: SearXNG web search
   const searxngBase = getSearxngBase();
   if (searxngBase) {
     try {
@@ -110,12 +105,10 @@ export async function search(
         categories: 'general',
         language: 'pt-BR',
       });
-
       const res = await fetch(`${searxngBase}/search?${params}`, {
         headers: { Accept: 'application/json' },
         signal: AbortSignal.timeout(10000),
       });
-
       if (res.ok) {
         const data = await res.json();
         return (data.results || [])
@@ -127,11 +120,10 @@ export async function search(
           }));
       }
     } catch {
-      console.warn('SearXNG also unavailable');
+      console.warn('SearXNG web search also unavailable');
     }
   }
 
-  console.error(`All search methods failed for "${query}"`);
   return [];
 }
 
@@ -156,9 +148,7 @@ interface ScrapeResponse {
   data: FirecrawlScrapeData;
 }
 
-export async function scrape(
-  url: string
-): Promise<FirecrawlScrapeData | null> {
+export async function scrape(url: string): Promise<FirecrawlScrapeData | null> {
   try {
     const result = await firecrawlRequest<ScrapeResponse>('/scrape', {
       url,
@@ -172,7 +162,7 @@ export async function scrape(
 }
 
 // ==========================================
-// Image Search (via Firecrawl search + filter)
+// Image Search
 // ==========================================
 
 export interface ImageSearchResult {
@@ -182,8 +172,39 @@ export interface ImageSearchResult {
 }
 
 /**
- * Search for product images using Bing Images via Firecrawl scrape.
- * Scrapes Bing Image Search results page and extracts real image URLs.
+ * Image filter: skip small, irrelevant, and non-product images.
+ */
+function isGoodImage(imgUrl: string): boolean {
+  if (/icon|logo|favicon|sprite|banner|pixel|tracking|widget|barcode|seller|button|stamp|ssl|encrypt/i.test(imgUrl)) return false;
+  if (/bing\.com|r\.bing\.com|microsoft\.com/i.test(imgUrl)) return false;
+
+  const sizeMatch = imgUrl.match(/(\d+)x(\d+)/);
+  if (sizeMatch && (parseInt(sizeMatch[1]) < 300 || parseInt(sizeMatch[2]) < 300)) return false;
+
+  const amzSize = imgUrl.match(/[._](SS|US|SY|SX|SL|UL)(\d+)/i);
+  if (amzSize && parseInt(amzSize[2]) < 300) return false;
+
+  const amzAc = imgUrl.match(/_AC_[A-Z]{2}(\d+)/i);
+  if (amzAc && parseInt(amzAc[1]) < 300) return false;
+
+  return true;
+}
+
+/**
+ * Extract image URLs from markdown content.
+ */
+function extractImageUrls(markdown: string): string[] {
+  return (
+    markdown.match(
+      /https?:\/\/[^\s)"']+\.(?:jpg|jpeg|png|webp)(?:\?[^\s)"']*)?/gi
+    ) || []
+  );
+}
+
+/**
+ * Search for product images.
+ * 1. SearXNG local (same docker, fast, free, real image search)
+ * 2. Bing Images via Firecrawl scrape (fallback)
  */
 export async function searchImages(
   query: string,
@@ -192,35 +213,52 @@ export async function searchImages(
   const results: ImageSearchResult[] = [];
   const seenUrls = new Set<string>();
 
+  // 1. SearXNG image search (same docker network, JSON enabled)
+  const searxngBase = getSearxngBase();
+  if (searxngBase) {
+    try {
+      const params = new URLSearchParams({
+        q: query,
+        format: 'json',
+        categories: 'images',
+        language: 'pt-BR',
+      });
+      const res = await fetch(`${searxngBase}/search?${params}`, {
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        for (const r of (data.results || []).slice(0, limit)) {
+          const imgUrl = r.img_src || r.url;
+          if (!imgUrl?.startsWith('http') || seenUrls.has(imgUrl)) continue;
+          if (!isGoodImage(imgUrl)) continue;
+          seenUrls.add(imgUrl);
+          results.push({
+            url: imgUrl,
+            source: r.source || 'SearXNG',
+            title: r.title,
+          });
+        }
+        if (results.length > 0) {
+          console.log(`[Images] SearXNG returned ${results.length} images`);
+          return results.slice(0, limit);
+        }
+      }
+    } catch (error) {
+      console.warn('[Images] SearXNG failed:', error instanceof Error ? error.message : error);
+    }
+  }
+
+  // 2. Bing Images via Firecrawl scrape (fallback)
   try {
-    // Scrape Bing Images search results
     const bingUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(query)}&form=HDRSC2`;
     const scraped = await scrape(bingUrl);
 
     if (scraped?.markdown) {
-      // Extract image URLs from the Bing results markdown
-      const imgMatches = scraped.markdown.match(
-        /https?:\/\/[^\s)"']+\.(?:jpg|jpeg|png|webp)(?:\?[^\s)"']*)?/gi
-      ) || [];
-
-      for (const imgUrl of imgMatches) {
+      for (const imgUrl of extractImageUrls(scraped.markdown)) {
         if (seenUrls.has(imgUrl)) continue;
-
-        // Skip Bing's own assets
-        if (imgUrl.includes('bing.com') || imgUrl.includes('r.bing.com') || imgUrl.includes('microsoft.com')) continue;
-
-        // Skip small/irrelevant
-        if (/icon|logo|favicon|sprite|banner|pixel|tracking|widget/i.test(imgUrl)) continue;
-
-        const sizeMatch = imgUrl.match(/(\d+)x(\d+)/);
-        if (sizeMatch && (parseInt(sizeMatch[1]) < 300 || parseInt(sizeMatch[2]) < 300)) continue;
-
-        const amzSize = imgUrl.match(/[._](SS|US|SY|SX|SL|UL)(\d+)/i);
-        if (amzSize && parseInt(amzSize[2]) < 300) continue;
-
-        const amzAc = imgUrl.match(/_AC_[A-Z]{2}(\d+)/i);
-        if (amzAc && parseInt(amzAc[1]) < 300) continue;
-
+        if (!isGoodImage(imgUrl)) continue;
         seenUrls.add(imgUrl);
         results.push({
           url: imgUrl,
@@ -228,9 +266,10 @@ export async function searchImages(
           title: query,
         });
       }
+      console.log(`[Images] Bing returned ${results.length} images`);
     }
   } catch (error) {
-    console.error('Image search failed:', error instanceof Error ? error.message : error);
+    console.error('[Images] Bing fallback failed:', error instanceof Error ? error.message : error);
   }
 
   return results.slice(0, limit);

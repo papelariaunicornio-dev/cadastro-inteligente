@@ -1,0 +1,21 @@
+services:
+  skuni:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+    depends_on:
+      - searxng
+
+  searxng:
+    image: searxng/searxng:latest
+    environment:
+      - SEARXNG_SECRET=${SEARXNG_SECRET:-changeme}
+    entrypoint: >
+      sh -c '
+      mkdir -p /etc/searxng &&
+      printf "use_default_settings: true\nserver:\n  secret_key: \"$$SEARXNG_SECRET\"\n  bind_address: \"0.0.0.0\"\n  port: 8080\n  limiter: false\nsearch:\n  formats:\n    - html\n    - json\n" > /etc/searxng/settings.yml &&
+      exec /usr/local/searxng/dockerfiles/docker-entrypoint.sh'
