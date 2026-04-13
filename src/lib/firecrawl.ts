@@ -182,87 +182,55 @@ export interface ImageSearchResult {
 }
 
 /**
- * Search for product images.
- * Uses Firecrawl search with image-focused queries,
- * then falls back to SearXNG image category if available.
+ * Search for product images using Bing Images via Firecrawl scrape.
+ * Scrapes Bing Image Search results page and extracts real image URLs.
  */
 export async function searchImages(
   query: string,
-  limit = 15
+  limit = 20
 ): Promise<ImageSearchResult[]> {
   const results: ImageSearchResult[] = [];
   const seenUrls = new Set<string>();
 
-  // 1. Try SearXNG image search (free, dedicated image category)
-  const searxngBase = getSearxngBase();
-  if (searxngBase) {
-    try {
-      const params = new URLSearchParams({
-        q: query,
-        format: 'json',
-        categories: 'images',
-        language: 'pt-BR',
-      });
+  try {
+    // Scrape Bing Images search results
+    const bingUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(query)}&form=HDRSC2`;
+    const scraped = await scrape(bingUrl);
 
-      const res = await fetch(`${searxngBase}/search?${params}`, {
-        headers: { Accept: 'application/json' },
-        signal: AbortSignal.timeout(10000),
-      });
+    if (scraped?.markdown) {
+      // Extract image URLs from the Bing results markdown
+      const imgMatches = scraped.markdown.match(
+        /https?:\/\/[^\s)"']+\.(?:jpg|jpeg|png|webp)(?:\?[^\s)"']*)?/gi
+      ) || [];
 
-      if (res.ok) {
-        const data = await res.json();
-        for (const r of (data.results || []).slice(0, limit)) {
-          const imgUrl = r.img_src || r.url;
-          if (!imgUrl || !imgUrl.startsWith('http') || seenUrls.has(imgUrl)) continue;
-          seenUrls.add(imgUrl);
-          results.push({
-            url: imgUrl,
-            source: r.source || 'SearXNG',
-            title: r.title,
-          });
-        }
+      for (const imgUrl of imgMatches) {
+        if (seenUrls.has(imgUrl)) continue;
+
+        // Skip Bing's own assets
+        if (imgUrl.includes('bing.com') || imgUrl.includes('r.bing.com') || imgUrl.includes('microsoft.com')) continue;
+
+        // Skip small/irrelevant
+        if (/icon|logo|favicon|sprite|banner|pixel|tracking|widget/i.test(imgUrl)) continue;
+
+        const sizeMatch = imgUrl.match(/(\d+)x(\d+)/);
+        if (sizeMatch && (parseInt(sizeMatch[1]) < 300 || parseInt(sizeMatch[2]) < 300)) continue;
+
+        const amzSize = imgUrl.match(/[._](SS|US|SY|SX|SL|UL)(\d+)/i);
+        if (amzSize && parseInt(amzSize[2]) < 300) continue;
+
+        const amzAc = imgUrl.match(/_AC_[A-Z]{2}(\d+)/i);
+        if (amzAc && parseInt(amzAc[1]) < 300) continue;
+
+        seenUrls.add(imgUrl);
+        results.push({
+          url: imgUrl,
+          source: 'Bing Images',
+          title: query,
+        });
       }
-    } catch {
-      console.warn('SearXNG image search unavailable');
     }
-  }
-
-  // 2. If not enough images, scrape top search results to extract image URLs
-  if (results.length < 5) {
-    try {
-      const searchResults = await search(`${query}`, 3);
-      for (const r of searchResults.slice(0, 2)) {
-        const scraped = await scrape(r.url);
-        if (!scraped?.markdown) continue;
-
-        // Extract image URLs from markdown
-        const imgMatches = scraped.markdown.match(
-          /https?:\/\/[^\s)"]+\.(?:jpg|jpeg|png|webp)(?:\?[^\s)"]*)?/gi
-        ) || [];
-
-        for (const imgUrl of imgMatches) {
-          if (seenUrls.has(imgUrl)) continue;
-          // Skip small/irrelevant images
-          // Skip non-product images
-          if (/icon|logo|favicon|sprite|banner|selo|pixel|tracking|widget|barcode|seller|shared|button|step-/i.test(imgUrl)) continue;
-          // Skip small images by NxN pattern
-          const sizeMatch = imgUrl.match(/(\d+)x(\d+)/);
-          if (sizeMatch && (parseInt(sizeMatch[1]) < 300 || parseInt(sizeMatch[2]) < 300)) continue;
-          // Skip Amazon small images (_SS115_, _US40_, _SY88_, etc.)
-          const amzSize = imgUrl.match(/[._](SS|US|SY|SX|SL|UL)(\d+)/i);
-          if (amzSize && parseInt(amzSize[2]) < 300) continue;
-          const amzAc = imgUrl.match(/_AC_[A-Z]{2}(\d+)/i);
-          if (amzAc && parseInt(amzAc[1]) < 300) continue;
-
-          seenUrls.add(imgUrl);
-          results.push({
-            url: imgUrl,
-            source: r.url,
-            title: r.title,
-          });
-        }
-      }
-    } catch { /* ignore */ }
+  } catch (error) {
+    console.error('Image search failed:', error instanceof Error ? error.message : error);
   }
 
   return results.slice(0, limit);
