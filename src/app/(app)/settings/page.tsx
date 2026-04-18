@@ -10,7 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { UserSettings } from '@/lib/types';
-import { IntegrationStatus } from '@/components/settings/integration-status';
+import { IntegrationsPanel } from '@/components/settings/integrations-panel';
 import { ConcorrentesSection } from '@/components/settings/concorrentes-section';
 
 export default function SettingsPage() {
@@ -204,16 +204,16 @@ export default function SettingsPage() {
       {/* Sites Concorrentes */}
       <ConcorrentesSection settings={settings} update={update} />
 
-      {/* Integrações — tokens via env vars, não no banco */}
+      {/* Integrações */}
       <Card>
         <CardHeader>
           <CardTitle>Integrações</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Tokens de API são configurados via variáveis de ambiente no servidor (Coolify), nunca armazenados no banco de dados.
+            Configure as integrações com seu ERP e plataformas de e-commerce. Tokens são armazenados criptografados.
           </p>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <IntegrationStatus />
+        <CardContent>
+          <IntegrationsPanel />
         </CardContent>
       </Card>
 

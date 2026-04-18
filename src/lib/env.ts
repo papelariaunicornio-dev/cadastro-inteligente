@@ -18,12 +18,20 @@ const envSchema = z.object({
   // Firecrawl
   FIRECRAWL_API_KEY: z.string().startsWith('fc-'),
 
-  // Tiny ERP (optional - configured later)
+  // Encryption key for DB-stored tokens (32 bytes = 64 hex chars)
+  // Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+  ENCRYPTION_KEY: z.string().length(64).optional(),
+
+  // Tiny ERP (optional - configured via UI or env var)
   TINY_ERP_TOKEN: z.string().optional(),
 
-  // Shopify (optional - configured later)
+  // Shopify (optional - configured via UI or env var)
   SHOPIFY_STORE_URL: z.string().optional(),
   SHOPIFY_ACCESS_TOKEN: z.string().optional(),
+
+  // Nuvemshop (optional - configured via UI or env var)
+  NUVEMSHOP_STORE_ID: z.string().optional(),
+  NUVEMSHOP_ACCESS_TOKEN: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

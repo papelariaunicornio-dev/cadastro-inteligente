@@ -7,21 +7,7 @@
  */
 
 import type { ProductDraft, ProductVariation, ProductImage } from '@/lib/types';
-
-function getConfig(): { baseUrl: string; token: string; userAgent: string } {
-  const storeId = process.env.NUVEMSHOP_STORE_ID;
-  const token = process.env.NUVEMSHOP_ACCESS_TOKEN;
-
-  if (!storeId || !token) {
-    throw new Error('NUVEMSHOP_STORE_ID and NUVEMSHOP_ACCESS_TOKEN must be set');
-  }
-
-  return {
-    baseUrl: `https://api.nuvemshop.com.br/v1/${storeId}`,
-    token,
-    userAgent: 'Skuni (skuni@papelariaunicornio.com.br)',
-  };
-}
+import { getNuvemshopConfig } from './config';
 
 interface NuvemshopProductResponse {
   id: number;
@@ -36,7 +22,11 @@ interface NuvemshopProductResponse {
 export async function createNuvemshopProduct(
   draft: ProductDraft
 ): Promise<{ success: boolean; nuvemshopId?: string; error?: string }> {
-  const { baseUrl, token, userAgent } = getConfig();
+  const config = await getNuvemshopConfig();
+  if (!config) return { success: false, error: 'Nuvemshop não configurado' };
+  const { storeId, token } = config;
+  const baseUrl = `https://api.nuvemshop.com.br/v1/${storeId}`;
+  const userAgent = 'Skuni (skuni@papelariaunicornio.com.br)';
 
   const variacoes: ProductVariation[] = draft.variacoes
     ? JSON.parse(draft.variacoes)

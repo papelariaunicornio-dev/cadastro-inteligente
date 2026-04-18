@@ -224,6 +224,8 @@ export interface UserSettings {
   shopify_url: string | null;
   shopify_token_encrypted: string | null;
   shopify_location_id: string | null;
+  nuvemshop_store_id: string | null;
+  nuvemshop_token_encrypted: string | null;
   created_at: string;
   updated_at: string;
 }

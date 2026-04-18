@@ -13,14 +13,9 @@
  */
 
 import type { ProductDraft, ProductVariation } from '@/lib/types';
+import { getTinyToken } from './config';
 
 const TINY_API_BASE = 'https://api.tiny.com.br/api2';
-
-function getToken(): string {
-  const token = process.env.TINY_ERP_TOKEN;
-  if (!token) throw new Error('TINY_ERP_TOKEN not set');
-  return token;
-}
 
 interface TinyResponse {
   retorno: {
@@ -44,7 +39,8 @@ interface TinyResponse {
 export async function createTinyProduct(
   draft: ProductDraft
 ): Promise<{ success: boolean; tinyId?: string; error?: string }> {
-  const token = getToken();
+  const token = await getTinyToken();
+  if (!token) return { success: false, error: 'Token Tiny ERP não configurado' };
 
   const variacoes: ProductVariation[] = draft.variacoes
     ? JSON.parse(draft.variacoes)

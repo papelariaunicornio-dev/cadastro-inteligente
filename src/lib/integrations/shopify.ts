@@ -3,13 +3,7 @@
  */
 
 import type { ProductDraft, ProductVariation, ProductImage } from '@/lib/types';
-
-function getConfig(): { storeUrl: string; token: string } {
-  const storeUrl = process.env.SHOPIFY_STORE_URL;
-  const token = process.env.SHOPIFY_ACCESS_TOKEN;
-  if (!storeUrl || !token) throw new Error('SHOPIFY_STORE_URL and SHOPIFY_ACCESS_TOKEN must be set');
-  return { storeUrl, token };
-}
+import { getShopifyConfig } from './config';
 
 interface ShopifyProductResponse {
   product: {
@@ -25,7 +19,9 @@ interface ShopifyProductResponse {
 export async function createShopifyProduct(
   draft: ProductDraft
 ): Promise<{ success: boolean; shopifyId?: string; error?: string }> {
-  const { storeUrl, token } = getConfig();
+  const config = await getShopifyConfig();
+  if (!config) return { success: false, error: 'Shopify não configurado' };
+  const { storeUrl, token } = config;
 
   const variacoes: ProductVariation[] = draft.variacoes
     ? JSON.parse(draft.variacoes)
