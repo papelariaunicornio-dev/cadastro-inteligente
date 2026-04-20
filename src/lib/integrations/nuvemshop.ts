@@ -22,7 +22,7 @@ interface NuvemshopProductResponse {
 export async function createNuvemshopProduct(
   draft: ProductDraft
 ): Promise<{ success: boolean; nuvemshopId?: string; error?: string }> {
-  const config = await getNuvemshopConfig();
+  const config = await getNuvemshopConfig(draft.user_id || 'admin');
   if (!config) return { success: false, error: 'Nuvemshop não configurado' };
   const { storeId, token } = config;
   const baseUrl = `https://api.nuvemshop.com.br/v1/${storeId}`;

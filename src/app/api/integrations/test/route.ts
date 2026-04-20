@@ -8,13 +8,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getTinyToken, getShopifyConfig, getNuvemshopConfig } from '@/lib/integrations/config';
+import { requireAuth } from '@/lib/session';
 
 const BodySchema = z.object({
   integration: z.enum(['tiny', 'shopify', 'nuvemshop', 'firecrawl', 'openai']),
 });
 
-async function testTiny(): Promise<{ ok: boolean; message: string }> {
-  const token = await getTinyToken();
+async function testTiny(userId: string): Promise<{ ok: boolean; message: string }> {
+  const token = await getTinyToken(userId);
   if (!token) return { ok: false, message: 'Token não configurado' };
 
   try {
@@ -42,8 +43,8 @@ async function testTiny(): Promise<{ ok: boolean; message: string }> {
   }
 }
 
-async function testShopify(): Promise<{ ok: boolean; message: string }> {
-  const config = await getShopifyConfig();
+async function testShopify(userId: string): Promise<{ ok: boolean; message: string }> {
+  const config = await getShopifyConfig(userId);
   if (!config) return { ok: false, message: 'Shopify não configurado' };
 
   try {
@@ -65,8 +66,8 @@ async function testShopify(): Promise<{ ok: boolean; message: string }> {
   }
 }
 
-async function testNuvemshop(): Promise<{ ok: boolean; message: string }> {
-  const config = await getNuvemshopConfig();
+async function testNuvemshop(userId: string): Promise<{ ok: boolean; message: string }> {
+  const config = await getNuvemshopConfig(userId);
   if (!config) return { ok: false, message: 'Nuvemshop não configurado' };
 
   try {
@@ -132,6 +133,9 @@ async function testOpenAI(): Promise<{ ok: boolean; message: string }> {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if (auth.response) return auth.response;
+
   try {
     const body = await request.json();
     const parsed = BodySchema.safeParse(body);
@@ -146,13 +150,13 @@ export async function POST(request: NextRequest) {
 
     switch (integration) {
       case 'tiny':
-        result = await testTiny();
+        result = await testTiny(auth.user.id);
         break;
       case 'shopify':
-        result = await testShopify();
+        result = await testShopify(auth.user.id);
         break;
       case 'nuvemshop':
-        result = await testNuvemshop();
+        result = await testNuvemshop(auth.user.id);
         break;
       case 'firecrawl':
         result = await testFirecrawl();

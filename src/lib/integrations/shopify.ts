@@ -19,7 +19,7 @@ interface ShopifyProductResponse {
 export async function createShopifyProduct(
   draft: ProductDraft
 ): Promise<{ success: boolean; shopifyId?: string; error?: string }> {
-  const config = await getShopifyConfig();
+  const config = await getShopifyConfig(draft.user_id || 'admin');
   if (!config) return { success: false, error: 'Shopify não configurado' };
   const { storeUrl, token } = config;
 

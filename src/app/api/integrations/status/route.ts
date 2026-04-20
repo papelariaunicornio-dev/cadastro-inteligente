@@ -1,14 +1,18 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getIntegrationStatuses } from '@/lib/integrations/config';
 import { isEncryptionAvailable } from '@/lib/crypto';
+import { requireAuth } from '@/lib/session';
 
 /**
  * Returns integration status — configured yes/no, source (db/env).
  * Never exposes tokens or env var names.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if (auth.response) return auth.response;
+
   try {
-    const statuses = await getIntegrationStatuses();
+    const statuses = await getIntegrationStatuses(auth.user.id);
 
     return NextResponse.json({
       tiny: {

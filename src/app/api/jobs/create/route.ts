@@ -4,8 +4,12 @@ import { TABLES } from '@/lib/nocodb-tables';
 import type { ProcessingJob } from '@/lib/types';
 import { JobRequestSchema } from '@/lib/schemas';
 import { enqueueJob } from '@/lib/queue';
+import { requireAuth } from '@/lib/session';
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if (auth.response) return auth.response;
+
   try {
     const raw = await request.json();
     const parsed = JobRequestSchema.safeParse(raw);
@@ -23,7 +27,7 @@ export async function POST(request: NextRequest) {
     for (const job of jobs) {
       // Create slim audit log in NocoDB (not the queue)
       const auditRow = await create<ProcessingJob>(TABLES.PROCESSING_JOBS, {
-        user_id: 'admin',
+        user_id: auth.user.id,
         nf_import_id: nfImportId,
         tipo: job.tipo,
         status: 'pendente',
@@ -41,6 +45,7 @@ export async function POST(request: NextRequest) {
         tipo: job.tipo,
         itemIds: job.itemIds,
         grupoId: job.grupoId,
+        userId: auth.user.id,
       });
     }
 

@@ -11,6 +11,7 @@ export const TABLES = {
   PROCESSING_JOBS: 'mhizl7xqrtjy88x',
   PRODUCT_DRAFTS: 'mnuwgpalf4n2ilh',
   USER_SETTINGS: 'mr83q772x5x8y5n',
+  USERS: 'mst66b0o5i2gc57',
 } as const;
 
 // Validate that tables are configured

@@ -67,6 +67,7 @@ export interface JobInput {
   tipo: string;
   itemIds: number[];
   grupoId: string | null;
+  userId: string;              // Owner — username (= user_id in all tables)
 }
 
 export interface JobProgress {

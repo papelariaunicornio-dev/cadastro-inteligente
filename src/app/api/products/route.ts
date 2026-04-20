@@ -4,6 +4,7 @@ import { TABLES } from '@/lib/nocodb-tables';
 import type { ProductDraft } from '@/lib/types';
 import { DraftStatusSchema } from '@/lib/schemas';
 import { z } from 'zod';
+import { requireAuth } from '@/lib/session';
 
 const QuerySchema = z.object({
   status: DraftStatusSchema.optional(),
@@ -12,6 +13,9 @@ const QuerySchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if (auth.response) return auth.response;
+
   const { searchParams } = request.nextUrl;
 
   const parsed = QuerySchema.safeParse({
@@ -29,9 +33,10 @@ export async function GET(request: NextRequest) {
 
   try {
     const { status, limit, offset } = parsed.data;
+    const userFilter = `(user_id,eq,${auth.user.id})`;
     const where = status
-      ? `(status,eq,${status})`
-      : '(status,neq,descartado)';
+      ? `${userFilter}~and(status,eq,${status})`
+      : `${userFilter}~and(status,neq,descartado)`;
 
     const result = await list<ProductDraft>(TABLES.PRODUCT_DRAFTS, {
       where,

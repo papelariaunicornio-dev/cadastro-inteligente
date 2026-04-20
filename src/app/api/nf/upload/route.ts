@@ -3,8 +3,12 @@ import { parseNFeXML } from '@/lib/xml-parser';
 import { create, bulkCreate, list } from '@/lib/nocodb';
 import { TABLES } from '@/lib/nocodb-tables';
 import type { NfImport, NfItem } from '@/lib/types';
+import { requireAuth } from '@/lib/session';
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if (auth.response) return auth.response;
+
   try {
     const formData = await request.formData();
     const file = formData.get('xml') as File | null;
@@ -41,7 +45,7 @@ export async function POST(request: NextRequest) {
     // Create NF import record
     const now = new Date().toISOString();
     const nfImport = await create<NfImport>(TABLES.NF_IMPORTS, {
-      user_id: 'admin',
+      user_id: auth.user.id,
       chave_acesso: nf.chaveAcesso,
       numero_nf: nf.numeroNf,
       data_emissao: nf.dataEmissao,

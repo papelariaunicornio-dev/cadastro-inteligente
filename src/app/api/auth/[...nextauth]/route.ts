@@ -1,5 +1,6 @@
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import { verifyCredentials } from '@/lib/auth-db';
 
 const handler = NextAuth({
   providers: [
@@ -10,25 +11,21 @@ const handler = NextAuth({
         password: { label: 'Senha', type: 'password' },
       },
       async authorize(credentials) {
-        const username = process.env.AUTH_USERNAME;
-        const password = process.env.AUTH_PASSWORD;
+        if (!credentials?.username || !credentials?.password) return null;
 
-        if (!username || !password) {
-          throw new Error('AUTH_USERNAME and AUTH_PASSWORD must be set');
-        }
+        const user = await verifyCredentials(
+          credentials.username,
+          credentials.password
+        );
 
-        if (
-          credentials?.username === username &&
-          credentials?.password === password
-        ) {
-          return {
-            id: '1',
-            name: username,
-            email: `${username}@skuni.local`,
-          };
-        }
+        if (!user) return null;
 
-        return null;
+        return {
+          id: user.id, // username — stable user_id used across all tables
+          name: user.name || user.username,
+          email: `${user.username}@skuni.local`,
+          role: user.role,
+        };
       },
     }),
   ],
@@ -37,6 +34,22 @@ const handler = NextAuth({
   },
   session: {
     strategy: 'jwt',
+  },
+  callbacks: {
+    jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.role = (user as { role?: string }).role ?? 'user';
+      }
+      return token;
+    },
+    session({ session, token }) {
+      if (token) {
+        session.user.id = token.id as string;
+        session.user.role = token.role as 'admin' | 'user';
+      }
+      return session;
+    },
   },
   secret: process.env.NEXTAUTH_SECRET,
 });

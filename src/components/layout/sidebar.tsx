@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { signOut } from 'next-auth/react';
+import { signOut, useSession } from 'next-auth/react';
 import {
   LayoutDashboard,
   Upload,
@@ -30,6 +30,7 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { data: session } = useSession();
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
@@ -107,10 +108,25 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Logout */}
-      <div className="border-t border-sidebar-border p-3">
+      {/* User + Logout */}
+      <div className="border-t border-sidebar-border p-3 space-y-1">
+        {session?.user && (
+          <div className="flex items-center gap-2 px-3 py-2">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground">
+              {(session.user.name || session.user.id || '?').charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-medium text-sidebar-foreground">
+                {session.user.name || session.user.id}
+              </p>
+              <p className="text-[10px] text-sidebar-foreground/50">
+                @{session.user.id}
+              </p>
+            </div>
+          </div>
+        )}
         <button
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
           onClick={() => signOut({ callbackUrl: '/login' })}
         >
           <LogOut className="h-4 w-4" />

@@ -2,10 +2,10 @@
  * Integration config service.
  *
  * Priority order:
- *   1. DB (user_settings) — encrypted tokens, decrypted at runtime
- *   2. Env vars — fallback for server-side config (Coolify)
+ *   1. DB (user_settings for the given userId) — encrypted tokens
+ *   2. Env vars — server-level fallback
  *
- * Never exposes plaintext tokens outside this module.
+ * userId = username (the stable identifier used across all tables).
  */
 
 import { list } from '@/lib/nocodb';
@@ -13,42 +13,43 @@ import { TABLES } from '@/lib/nocodb-tables';
 import { decrypt } from '@/lib/crypto';
 import type { UserSettings } from '@/lib/types';
 
-// Simple in-process cache so we don't hit NocoDB on every request.
-// Invalidated after 60s or when config is updated.
-let cache: UserSettings | null = null;
-let cacheTime = 0;
+// Per-user settings cache: userId → { settings, time }
+const cache = new Map<string, { settings: UserSettings; time: number }>();
 const CACHE_TTL = 60_000; // 60 seconds
 
-async function getSettings(): Promise<UserSettings | null> {
-  if (cache && Date.now() - cacheTime < CACHE_TTL) return cache;
+async function getSettings(userId: string): Promise<UserSettings | null> {
+  const hit = cache.get(userId);
+  if (hit && Date.now() - hit.time < CACHE_TTL) return hit.settings;
 
   try {
     const result = await list<UserSettings>(TABLES.USER_SETTINGS, {
-      where: '(user_id,eq,admin)',
+      where: `(user_id,eq,${userId})`,
       limit: 1,
     });
     if (result.list.length > 0) {
-      cache = result.list[0];
-      cacheTime = Date.now();
-      return cache;
+      cache.set(userId, { settings: result.list[0], time: Date.now() });
+      return result.list[0];
     }
   } catch {
-    // If DB is unavailable, fall through to env vars
+    // DB unavailable — fall through to env vars
   }
   return null;
 }
 
-export function invalidateConfigCache(): void {
-  cache = null;
-  cacheTime = 0;
+export function invalidateConfigCache(userId?: string): void {
+  if (userId) {
+    cache.delete(userId);
+  } else {
+    cache.clear();
+  }
 }
 
 // ==========================================
 // Tiny ERP
 // ==========================================
 
-export async function getTinyToken(): Promise<string | null> {
-  const settings = await getSettings();
+export async function getTinyToken(userId: string): Promise<string | null> {
+  const settings = await getSettings(userId);
   if (settings?.tiny_token_encrypted) {
     const token = decrypt(settings.tiny_token_encrypted);
     if (token) return token;
@@ -60,8 +61,10 @@ export async function getTinyToken(): Promise<string | null> {
 // Shopify
 // ==========================================
 
-export async function getShopifyConfig(): Promise<{ storeUrl: string; token: string } | null> {
-  const settings = await getSettings();
+export async function getShopifyConfig(
+  userId: string
+): Promise<{ storeUrl: string; token: string } | null> {
+  const settings = await getSettings(userId);
 
   const storeUrl = settings?.shopify_url || process.env.SHOPIFY_STORE_URL || null;
   let token: string | null = null;
@@ -79,8 +82,10 @@ export async function getShopifyConfig(): Promise<{ storeUrl: string; token: str
 // Nuvemshop
 // ==========================================
 
-export async function getNuvemshopConfig(): Promise<{ storeId: string; token: string } | null> {
-  const settings = await getSettings();
+export async function getNuvemshopConfig(
+  userId: string
+): Promise<{ storeId: string; token: string } | null> {
+  const settings = await getSettings(userId);
 
   const storeId = settings?.nuvemshop_store_id || process.env.NUVEMSHOP_STORE_ID || null;
   let token: string | null = null;
@@ -98,17 +103,15 @@ export async function getNuvemshopConfig(): Promise<{ storeId: string; token: st
 // Status helpers (for UI display)
 // ==========================================
 
-export async function getIntegrationStatuses() {
-  const settings = await getSettings();
+export async function getIntegrationStatuses(userId: string) {
+  const settings = await getSettings(userId);
 
   const tinyToken = settings?.tiny_token_encrypted
     ? decrypt(settings.tiny_token_encrypted)
     : null;
-
   const shopifyToken = settings?.shopify_token_encrypted
     ? decrypt(settings.shopify_token_encrypted)
     : null;
-
   const nuvemshopToken = settings?.nuvemshop_token_encrypted
     ? decrypt(settings.nuvemshop_token_encrypted)
     : null;

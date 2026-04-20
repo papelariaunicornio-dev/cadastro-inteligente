@@ -39,7 +39,7 @@ interface TinyResponse {
 export async function createTinyProduct(
   draft: ProductDraft
 ): Promise<{ success: boolean; tinyId?: string; error?: string }> {
-  const token = await getTinyToken();
+  const token = await getTinyToken(draft.user_id || 'admin');
   if (!token) return { success: false, error: 'Token Tiny ERP não configurado' };
 
   const variacoes: ProductVariation[] = draft.variacoes

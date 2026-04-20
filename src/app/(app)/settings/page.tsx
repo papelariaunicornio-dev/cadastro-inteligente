@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import type { UserSettings } from '@/lib/types';
 import { IntegrationsPanel } from '@/components/settings/integrations-panel';
 import { ConcorrentesSection } from '@/components/settings/concorrentes-section';
+import { UsersPanel } from '@/components/settings/users-panel';
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Partial<UserSettings>>({});
@@ -214,6 +215,19 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <IntegrationsPanel />
+        </CardContent>
+      </Card>
+
+      {/* Usuários */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Usuários</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Cada usuário tem suas próprias configurações, cadastros e integrações.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <UsersPanel />
         </CardContent>
       </Card>
 

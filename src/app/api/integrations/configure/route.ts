@@ -14,6 +14,7 @@ import { TABLES } from '@/lib/nocodb-tables';
 import { encrypt, isEncryptionAvailable } from '@/lib/crypto';
 import { invalidateConfigCache } from '@/lib/integrations/config';
 import type { UserSettings } from '@/lib/types';
+import { requireAuth } from '@/lib/session';
 
 const TinySchema = z.object({
   integration: z.literal('tiny'),
@@ -39,16 +40,16 @@ const DeleteSchema = z.object({
 
 const BodySchema = z.union([TinySchema, ShopifySchema, NuvemshopSchema, DeleteSchema]);
 
-async function getOrCreateSettings(): Promise<UserSettings> {
+async function getOrCreateSettings(userId: string): Promise<UserSettings> {
   const result = await list<UserSettings>(TABLES.USER_SETTINGS, {
-    where: '(user_id,eq,admin)',
+    where: `(user_id,eq,${userId})`,
     limit: 1,
   });
 
   if (result.list.length > 0) return result.list[0];
 
   return create<UserSettings>(TABLES.USER_SETTINGS, {
-    user_id: 'admin',
+    user_id: userId,
     regime_tributario: 'simples_nacional',
     aliquota_impostos: 6,
     margem_desejada: 40,
@@ -67,6 +68,9 @@ async function getOrCreateSettings(): Promise<UserSettings> {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if (auth.response) return auth.response;
+
   try {
     if (!isEncryptionAvailable()) {
       return NextResponse.json(
@@ -88,7 +92,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const settings = await getOrCreateSettings();
+    const settings = await getOrCreateSettings(auth.user.id);
     const now = new Date().toISOString();
     let patch: Partial<UserSettings> = { updated_at: now };
 
@@ -121,8 +125,8 @@ export async function POST(request: NextRequest) {
 
     await update<UserSettings>(TABLES.USER_SETTINGS, settings.Id, patch);
 
-    // Bust the in-process config cache
-    invalidateConfigCache();
+    // Bust the in-process config cache for this user
+    invalidateConfigCache(auth.user.id);
 
     return NextResponse.json({ ok: true });
   } catch (error) {

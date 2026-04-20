@@ -4,6 +4,7 @@ import { TABLES } from '@/lib/nocodb-tables';
 import type { ProcessingJob } from '@/lib/types';
 import { enqueueJob } from '@/lib/queue';
 import { z } from 'zod';
+import { requireAuth } from '@/lib/session';
 
 const SearchJobSchema = z.object({
   queries: z.array(
@@ -19,6 +20,9 @@ const SearchJobSchema = z.object({
  * Each term creates one job that searches, scrapes, and generates a product draft.
  */
 export async function POST(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if (auth.response) return auth.response;
+
   try {
     const raw = await request.json();
     const parsed = SearchJobSchema.safeParse(raw);
@@ -36,7 +40,7 @@ export async function POST(request: NextRequest) {
     for (const query of parsed.data.queries) {
       // Create audit log entry — no nf_import_id, search term stored in item_ids as JSON
       const auditRow = await create<ProcessingJob>(TABLES.PROCESSING_JOBS, {
-        user_id: 'admin',
+        user_id: auth.user.id,
         nf_import_id: 'search', // Special marker for search-based jobs
         tipo: query.tipo,
         status: 'pendente',
@@ -52,8 +56,9 @@ export async function POST(request: NextRequest) {
         jobId: auditRow.Id,
         nfImportId: 'search',
         tipo: query.tipo,
-        itemIds: [], // No NF items
-        grupoId: query.termo, // Reuse grupoId field to pass the search term
+        itemIds: [],
+        grupoId: query.termo,
+        userId: auth.user.id,
       });
     }
 

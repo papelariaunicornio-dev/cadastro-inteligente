@@ -45,10 +45,10 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
   ]);
 }
 
-async function loadSettings(): Promise<Partial<UserSettings> | null> {
+async function loadSettings(userId: string): Promise<Partial<UserSettings> | null> {
   try {
     const result = await list<UserSettings>(TABLES.USER_SETTINGS, {
-      where: '(user_id,eq,admin)',
+      where: `(user_id,eq,${userId})`,
       limit: 1,
     });
     return result.list[0] || null;
@@ -63,7 +63,7 @@ async function loadSettings(): Promise<Partial<UserSettings> | null> {
  * NocoDB only gets the final product_draft + audit log update.
  */
 export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
-  const { jobId, nfImportId, tipo, itemIds, grupoId } = job.data;
+  const { jobId, nfImportId, tipo, itemIds, grupoId, userId = 'admin' } = job.data;
 
   const updateProgress = async (progress: JobProgress) => {
     await job.updateProgress(progress);
@@ -76,7 +76,7 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
       updated_at: new Date().toISOString(),
     }).catch(() => {}); // Non-critical
 
-    const settings = await loadSettings();
+    const settings = await loadSettings(userId);
     const isSearchJob = nfImportId === 'search';
     const searchTerm = isSearchJob ? (grupoId || '') : '';
 
@@ -314,7 +314,7 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
     const now = new Date().toISOString();
     await create<ProductDraft>(TABLES.PRODUCT_DRAFTS, {
       job_id: String(jobId),
-      user_id: 'admin',
+      user_id: userId,
       status: 'aguardando',
       titulo: generated.titulo,
       descricao_curta: generated.descricao_curta,
