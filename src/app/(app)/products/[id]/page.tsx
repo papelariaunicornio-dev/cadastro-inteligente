@@ -23,6 +23,9 @@ import {
   X,
   RotateCcw,
   Search,
+  ZoomIn,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import type {
   ProductDraft,
@@ -123,6 +126,7 @@ export default function ProductEditPage({
   const [images, setImages] = useState<ProductImage[]>([]);
   const [imageResolutions, setImageResolutions] = useState<Map<string, { w: number; h: number }>>(new Map());
   const [hiddenSmallImages, setHiddenSmallImages] = useState<Set<string>>(new Set());
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [variacoes, setVariacoes] = useState<ProductVariation[]>([]);
   const [tipoVariacao, setTipoVariacao] = useState('');
 
@@ -268,6 +272,36 @@ export default function ProductEditPage({
   };
 
   const selectedImagesCount = images.filter((i) => i.selecionada).length;
+
+  // Visible images list for lightbox navigation (excludes small/hidden)
+  const visibleImages = images.filter((img) => !hiddenSmallImages.has(img.url));
+
+  const lightboxNavTo = (url: string) => setLightboxUrl(url);
+
+  const lightboxPrev = () => {
+    if (!lightboxUrl) return;
+    const idx = visibleImages.findIndex((img) => img.url === lightboxUrl);
+    if (idx > 0) setLightboxUrl(visibleImages[idx - 1].url);
+  };
+
+  const lightboxNext = () => {
+    if (!lightboxUrl) return;
+    const idx = visibleImages.findIndex((img) => img.url === lightboxUrl);
+    if (idx < visibleImages.length - 1) setLightboxUrl(visibleImages[idx + 1].url);
+  };
+
+  // Keyboard navigation for lightbox
+  useEffect(() => {
+    if (!lightboxUrl) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightboxUrl(null);
+      else if (e.key === 'ArrowLeft') lightboxPrev();
+      else if (e.key === 'ArrowRight') lightboxNext();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lightboxUrl, visibleImages]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -475,7 +509,94 @@ export default function ProductEditPage({
   const fontes = JSON.parse(product.fontes || '[]');
   const isEditable = product.status === 'aguardando';
 
+  // ==========================================
+  // Lightbox vars (computed here for JSX)
+  // ==========================================
+  const lbIndex = lightboxUrl ? visibleImages.findIndex((img) => img.url === lightboxUrl) : -1;
+  const lbRes = lightboxUrl ? imageResolutions.get(lightboxUrl) : null;
+  const lbImg = lbIndex >= 0 ? visibleImages[lbIndex] : null;
+
   return (
+    <>
+    {/* ── Lightbox overlay ── */}
+    {lightboxUrl && lbImg && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+        onClick={() => setLightboxUrl(null)}
+      >
+        {/* Prev arrow */}
+        {lbIndex > 0 && (
+          <button
+            className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white hover:bg-white/25 transition-colors"
+            onClick={(e) => { e.stopPropagation(); lightboxPrev(); }}
+          >
+            <ChevronLeft className="h-7 w-7" />
+          </button>
+        )}
+
+        {/* Image */}
+        <div
+          className="relative flex max-h-[90vh] max-w-[90vw] items-center justify-center"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <img
+            src={lightboxUrl}
+            alt={`Imagem ${lbIndex + 1}`}
+            className="max-h-[85vh] max-w-[88vw] rounded-lg object-contain shadow-2xl"
+          />
+
+          {/* Top-right: close + counter */}
+          <div className="absolute right-0 top-0 flex items-center gap-2 p-2">
+            <span className="rounded bg-black/60 px-2 py-0.5 text-xs text-white">
+              {lbIndex + 1} / {visibleImages.length}
+            </span>
+            <button
+              className="rounded-full bg-black/60 p-1 text-white hover:bg-black/80 transition-colors"
+              onClick={() => setLightboxUrl(null)}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Bottom info bar */}
+          <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between rounded-b-lg bg-black/60 px-3 py-1.5 text-xs text-white">
+            <div className="flex items-center gap-2 truncate">
+              {lbRes && (
+                <span className="font-mono font-semibold">{lbRes.w}×{lbRes.h}px</span>
+              )}
+              <a
+                href={lightboxUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 truncate text-white/70 hover:text-white"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ExternalLink className="h-3 w-3 shrink-0" />
+                <span className="truncate">{lightboxUrl}</span>
+              </a>
+            </div>
+            <div className="shrink-0 ml-2">
+              {(lbImg as ProductImage & { origem?: string }).origem === 'searxng' ? (
+                <Badge variant="outline" className="border-purple-400 bg-purple-900/60 text-purple-200 text-[9px]">Busca</Badge>
+              ) : (lbImg as ProductImage & { origem?: string }).origem ? (
+                <Badge variant="outline" className="border-gray-400 bg-gray-900/60 text-gray-200 text-[9px]">Scrape</Badge>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        {/* Next arrow */}
+        {lbIndex < visibleImages.length - 1 && (
+          <button
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white hover:bg-white/25 transition-colors"
+            onClick={(e) => { e.stopPropagation(); lightboxNext(); }}
+          >
+            <ChevronRight className="h-7 w-7" />
+          </button>
+        )}
+      </div>
+    )}
+
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
@@ -723,6 +844,15 @@ export default function ProductEditPage({
                         }}
                       />
                     </div>
+                    {/* Zoom button — top-right, visible on hover */}
+                    <button
+                      className="absolute right-2 top-2 z-10 rounded-full bg-black/50 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/80"
+                      onClick={(e) => { e.stopPropagation(); lightboxNavTo(img.url); }}
+                      title="Ver ampliado"
+                    >
+                      <ZoomIn className="h-3.5 w-3.5" />
+                    </button>
+
                     <div className="absolute left-2 top-2">
                       <Checkbox checked={img.selecionada} disabled={!isEditable} />
                     </div>
@@ -759,7 +889,7 @@ export default function ProductEditPage({
                       <div className="absolute inset-0 rounded-lg border-2 border-dashed border-gray-300 pointer-events-none" />
                     )}
                     {img.selecionada && i === images.findIndex((im) => im.selecionada) && (
-                      <Badge className="absolute right-2 top-2 text-[10px]">
+                      <Badge className="absolute right-2 top-2 text-[10px] group-hover:opacity-0 transition-opacity">
                         Principal
                       </Badge>
                     )}
@@ -1150,5 +1280,6 @@ export default function ProductEditPage({
         </div>
       )}
     </div>
+    </>
   );
 }
