@@ -22,6 +22,7 @@ export interface SearchResult {
   classified: UrlClassification;
   rawResults: FirecrawlSearchResult[];
   firecrawlCredits: number;
+  competitorUrls: string[];
 }
 
 /**
@@ -62,23 +63,7 @@ export async function searchProduct(ctx: SearchContext): Promise<SearchResult> {
     }
   }
 
-  // 4. Search specifically on competitor/reference sites
-  if (ctx.sitesConcorrentes && ctx.sitesConcorrentes.length > 0) {
-    const siteFilter = ctx.sitesConcorrentes
-      .map((s) => {
-        try {
-          return new URL(s.url).hostname.replace('www.', '');
-        } catch {
-          return s.url.replace(/^https?:\/\//, '').replace('www.', '').split('/')[0];
-        }
-      })
-      .map((domain) => `site:${domain}`)
-      .join(' OR ');
-
-    queries.push(`${cleanName} ${siteFilter}`);
-  }
-
-  // Execute searches (sequential to respect rate limits)
+  // Execute main searches (sequential to respect rate limits)
   const allResults: FirecrawlSearchResult[] = [];
   const seenUrls = new Set<string>();
 
@@ -95,7 +80,7 @@ export async function searchProduct(ctx: SearchContext): Promise<SearchResult> {
 
   const allUrls = allResults.map((r) => r.url);
 
-  // Add competitor domains to classify-urls known lists
+  // Add competitor domains to classify-urls known lists (so they don't bleed into ecommerce bucket)
   const competitorDomains = (ctx.sitesConcorrentes || []).map((s) => {
     try {
       return new URL(s.url).hostname.replace('www.', '');
@@ -106,12 +91,32 @@ export async function searchProduct(ctx: SearchContext): Promise<SearchResult> {
 
   const classified = classifyUrls(allUrls, brand, competitorDomains);
 
+  // Per-competitor targeted searches: {product name} site:{domain}
+  const competitorUrls: string[] = [];
+  for (const site of ctx.sitesConcorrentes || []) {
+    const domain = (() => {
+      try {
+        return new URL(site.url).hostname.replace('www.', '');
+      } catch {
+        return site.url.replace(/^https?:\/\//, '').replace('www.', '').split('/')[0];
+      }
+    })();
+
+    const results = await search(`${cleanName} site:${domain}`, 3);
+    const match = results.find((r) => r.url.includes(domain));
+    if (match) {
+      competitorUrls.push(match.url);
+    }
+    await new Promise((r) => setTimeout(r, 300));
+  }
+
   return {
     brand,
     allUrls,
     classified,
     rawResults: allResults,
-    firecrawlCredits: queries.length,
+    firecrawlCredits: queries.length + (ctx.sitesConcorrentes?.length || 0),
+    competitorUrls,
   };
 }
 

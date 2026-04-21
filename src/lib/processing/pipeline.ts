@@ -122,6 +122,7 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
         classified,
         rawResults: results,
         firecrawlCredits: 1,
+        competitorUrls: [],
       };
     } else {
       searchResult = await withTimeout(
@@ -162,12 +163,25 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
     });
 
     const scrapedData = await withTimeout(
-      scrapePages(searchResult.classified),
+      scrapePages(searchResult.classified, 5),
       STEP_TIMEOUT_MS,
       'scrape'
     );
 
-    const scrapingSummaries = scrapedData.map((d) => ({
+    // Scrape competitor sites with dedicated slots
+    let competitorData: ScrapedData[] = [];
+    if (searchResult.competitorUrls && searchResult.competitorUrls.length > 0) {
+      await updateProgress({ step: 'scraping', message: `Verificando ${searchResult.competitorUrls.length} concorrentes...` });
+      const { scrapeCompetitorPages } = await import('./scraper');
+      competitorData = await withTimeout(
+        scrapeCompetitorPages(searchResult.competitorUrls),
+        STEP_TIMEOUT_MS,
+        'competitor-scrape'
+      );
+    }
+    const allScrapedData = [...scrapedData, ...competitorData];
+
+    const scrapingSummaries = allScrapedData.map((d) => ({
       url: d.url,
       tipo: d.tipo,
       titulo: d.titulo,
@@ -178,14 +192,14 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
 
     await updateProgress({
       step: 'scraping',
-      message: `Extraídas ${scrapedData.length} páginas`,
+      message: `Extraídas ${allScrapedData.length} páginas`,
       searchResults: {
         brand: searchResult.brand,
         urls: searchResult.classified,
         totalUrls: searchResult.allUrls.length,
       },
       scrapingResults: {
-        pagesScraped: scrapedData.length,
+        pagesScraped: allScrapedData.length,
         summaries: scrapingSummaries,
       },
     });
@@ -200,12 +214,12 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
         totalUrls: searchResult.allUrls.length,
       },
       scrapingResults: {
-        pagesScraped: scrapedData.length,
+        pagesScraped: allScrapedData.length,
         summaries: scrapingSummaries,
       },
     });
 
-    const images = await collectImages(scrapedData, isSearchJob ? searchTerm : `${searchResult.brand} ${items[0]?.descricao || ''}`.trim());
+    const images = await collectImages(allScrapedData, isSearchJob ? searchTerm : `${searchResult.brand} ${items[0]?.descricao || ''}`.trim());
 
     await updateProgress({
       step: 'buscando_imagens',
@@ -216,7 +230,7 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
         totalUrls: searchResult.allUrls.length,
       },
       scrapingResults: {
-        pagesScraped: scrapedData.length,
+        pagesScraped: allScrapedData.length,
         summaries: scrapingSummaries,
       },
       imagesFound: images.length,
@@ -232,7 +246,7 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
         totalUrls: searchResult.allUrls.length,
       },
       scrapingResults: {
-        pagesScraped: scrapedData.length,
+        pagesScraped: allScrapedData.length,
         summaries: scrapingSummaries,
       },
       imagesFound: images.length,
@@ -257,7 +271,7 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
         items: effectiveItems,
         tipo: tipo as 'sem_variacao' | 'com_variacao' | 'multiplos_itens',
         brand: searchResult.brand,
-        scrapedData,
+        scrapedData: allScrapedData,
         settings,
       }),
       STEP_TIMEOUT_MS,
@@ -276,9 +290,9 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
       frete_medio_unidade: Number(settings?.frete_medio_unidade) || 0,
       taxas_fixas: Number(settings?.taxas_fixas) || 0,
     });
-    const avgPrices = calculateAveragePrices(scrapedData);
+    const avgPrices = calculateAveragePrices(allScrapedData);
 
-    const precosEncontrados: PriceFound[] = scrapedData
+    const precosEncontrados: PriceFound[] = allScrapedData
       .filter((d) => d.preco)
       .map((d) => ({
         fonte: d.tipo,
@@ -334,7 +348,7 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
       descricao_seo: generated.descricao_seo,
       palavras_chave: generated.palavras_chave,
       openai_tokens: openaiUsage.total_tokens,
-      firecrawl_credits: searchResult.firecrawlCredits + scrapedData.length, // searches + scrapes
+      firecrawl_credits: searchResult.firecrawlCredits + allScrapedData.length, // searches + scrapes
       ean: primaryItem.ean,
       ncm: primaryItem.ncm,
       peso: generated.peso_estimado,
@@ -355,7 +369,7 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
       variacoes: JSON.stringify(variacoes),
       atributos: JSON.stringify(generated.atributos),
       fontes: JSON.stringify(
-        scrapedData.map((d) => ({
+        allScrapedData.map((d) => ({
           tipo: d.tipo,
           url: d.url,
           titulo: d.titulo,
@@ -381,7 +395,7 @@ export async function processJobFromQueue(job: Job<JobInput>): Promise<void> {
         totalUrls: searchResult.allUrls.length,
       },
       scrapingResults: {
-        pagesScraped: scrapedData.length,
+        pagesScraped: allScrapedData.length,
         summaries: scrapingSummaries,
       },
       imagesFound: images.length,

@@ -55,11 +55,17 @@ export function classifyUrls(
     marca: [],
     ecommerce: [],
     marketplace: [],
+    concorrente: [],
   };
 
   for (const url of urls) {
     const domain = extractDomain(url);
     if (!domain) continue;
+
+    // Skip competitor domains — they are scraped separately via scrapeCompetitorPages
+    if (competitorDomains?.some((cd) => domain.includes(cd) || cd.includes(domain))) {
+      continue;
+    }
 
     // Check if it's a known brand domain
     if (BRAND_DOMAINS[domain]) {
@@ -84,12 +90,6 @@ export function classifyUrls(
 
     // Check known e-commerce
     if (ECOMMERCE_DOMAINS.has(domain)) {
-      result.ecommerce.push(url);
-      continue;
-    }
-
-    // Check competitor/reference sites (treated as e-commerce)
-    if (competitorDomains?.some((cd) => domain.includes(cd) || cd.includes(domain))) {
       result.ecommerce.push(url);
       continue;
     }

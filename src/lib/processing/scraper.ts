@@ -49,12 +49,40 @@ export async function scrapePages(
 }
 
 /**
+ * Scrape competitor pages with dedicated 'concorrente' type slots.
+ * Each URL comes from a per-competitor targeted search, so they are
+ * separate from the ecommerce cap used by scrapePages.
+ */
+export async function scrapeCompetitorPages(competitorUrls: string[]): Promise<ScrapedData[]> {
+  const results: ScrapedData[] = [];
+  const urls = competitorUrls.slice(0, 5);
+
+  for (const url of urls) {
+    try {
+      const data = await scrape(url);
+      if (!data) continue;
+
+      const scraped = extractProductData(data.markdown || '', url, 'concorrente');
+      if (scraped) {
+        results.push(scraped);
+      }
+
+      await new Promise((r) => setTimeout(r, 800));
+    } catch (error) {
+      console.error(`Competitor scrape failed for ${url}:`, error);
+    }
+  }
+
+  return results;
+}
+
+/**
  * Extract structured product data from scraped markdown content.
  */
 function extractProductData(
   markdown: string,
   url: string,
-  tipo: 'marca' | 'ecommerce' | 'marketplace'
+  tipo: 'marca' | 'ecommerce' | 'marketplace' | 'concorrente'
 ): ScrapedData | null {
   if (!markdown || markdown.length < 50) return null;
 

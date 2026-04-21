@@ -243,11 +243,12 @@ export interface UrlClassification {
   marca: string[];
   ecommerce: string[];
   marketplace: string[];
+  concorrente: string[];
 }
 
 export interface ScrapedData {
   url: string;
-  tipo: 'marca' | 'ecommerce' | 'marketplace';
+  tipo: 'marca' | 'ecommerce' | 'marketplace' | 'concorrente';
   titulo?: string;
   descricao?: string;
   especificacoes?: Record<string, string>;

@@ -23,10 +23,11 @@ function collectFromScrape(scrapedData: ScrapedData[]): ProductImage[] {
   const images: ProductImage[] = [];
   let ordem = 0;
 
-  const priorityOrder: ('marca' | 'ecommerce' | 'marketplace')[] = [
+  const priorityOrder: ('marca' | 'ecommerce' | 'marketplace' | 'concorrente')[] = [
     'marca',
     'ecommerce',
     'marketplace',
+    'concorrente',
   ];
 
   for (const tipo of priorityOrder) {
