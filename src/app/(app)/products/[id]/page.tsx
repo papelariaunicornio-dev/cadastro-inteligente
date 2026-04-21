@@ -121,7 +121,8 @@ export default function ProductEditPage({
   const [descricaoSeo, setDescricaoSeo] = useState('');
   const [palavrasChave, setPalavrasChave] = useState('');
   const [images, setImages] = useState<ProductImage[]>([]);
-  const [imageResolutions, setImageResolutions] = useState<Map<number, { w: number; h: number }>>(new Map());
+  const [imageResolutions, setImageResolutions] = useState<Map<string, { w: number; h: number }>>(new Map());
+  const [hiddenSmallImages, setHiddenSmallImages] = useState<Set<string>>(new Set());
   const [variacoes, setVariacoes] = useState<ProductVariation[]>([]);
   const [tipoVariacao, setTipoVariacao] = useState('');
 
@@ -162,9 +163,11 @@ export default function ProductEditPage({
         setDescricaoSeo(extra.descricao_seo || '');
         setPalavrasChave(extra.palavras_chave || '');
 
-        // Images: all deselected by default
+        // Images: all deselected by default; clear resolution caches for new product
         const imgs: ProductImage[] = JSON.parse(data.imagens || '[]');
         setImages(imgs.map((img) => ({ ...img, selecionada: false })));
+        setImageResolutions(new Map());
+        setHiddenSmallImages(new Set());
 
         setVariacoes(JSON.parse(data.variacoes || '[]'));
 
@@ -285,10 +288,16 @@ export default function ProductEditPage({
     e.target.value = '';
   };
 
-  const handleImageLoaded = (index: number, w: number, h: number) => {
+  const MIN_IMAGE_DIMENSION = 300;
+
+  const handleImageLoaded = (url: string, w: number, h: number) => {
+    if (w < MIN_IMAGE_DIMENSION || h < MIN_IMAGE_DIMENSION) {
+      setHiddenSmallImages((prev) => new Set([...prev, url]));
+      return;
+    }
     setImageResolutions((prev) => {
       const next = new Map(prev);
-      next.set(index, { w, h });
+      next.set(url, { w, h });
       return next;
     });
   };
@@ -688,7 +697,8 @@ export default function ProductEditPage({
           ) : (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
               {images.map((img, i) => {
-                const res = imageResolutions.get(i);
+                if (hiddenSmallImages.has(img.url)) return null;
+                const res = imageResolutions.get(img.url);
                 const isHighRes = res && (res.w > 800 || res.h > 800);
                 return (
                   <div
@@ -709,7 +719,7 @@ export default function ProductEditPage({
                         loading="lazy"
                         onLoad={(e) => {
                           const el = e.currentTarget;
-                          handleImageLoaded(i, el.naturalWidth, el.naturalHeight);
+                          handleImageLoaded(img.url, el.naturalWidth, el.naturalHeight);
                         }}
                       />
                     </div>
